@@ -5,13 +5,11 @@
 // 預設設定
 const DEFAULT_SETTINGS = {
   showBubble: true,
-  autoCleanClipboard: true,
   showNotifications: true
 };
 
 // DOM 元素
 const showBubbleCheckbox = document.getElementById('showBubble');
-const autoCleanClipboardCheckbox = document.getElementById('autoCleanClipboard');
 const showNotificationsCheckbox = document.getElementById('showNotifications');
 const saveButton = document.getElementById('saveButton');
 const resetButton = document.getElementById('resetButton');
@@ -26,7 +24,6 @@ async function loadSettings() {
     const settings = result.settings || DEFAULT_SETTINGS;
 
     showBubbleCheckbox.checked = settings.showBubble !== false;
-    autoCleanClipboardCheckbox.checked = settings.autoCleanClipboard !== false;
     showNotificationsCheckbox.checked = settings.showNotifications !== false;
 
     console.log('✓ 設定已載入:', settings);
@@ -43,7 +40,6 @@ async function saveSettings() {
   try {
     const settings = {
       showBubble: showBubbleCheckbox.checked,
-      autoCleanClipboard: autoCleanClipboardCheckbox.checked,
       showNotifications: showNotificationsCheckbox.checked
     };
 
@@ -65,7 +61,6 @@ async function resetSettings() {
     await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
 
     showBubbleCheckbox.checked = DEFAULT_SETTINGS.showBubble;
-    autoCleanClipboardCheckbox.checked = DEFAULT_SETTINGS.autoCleanClipboard;
     showNotificationsCheckbox.checked = DEFAULT_SETTINGS.showNotifications;
 
     console.log('✓ 設定已重置為預設值');

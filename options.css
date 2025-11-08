@@ -71,6 +71,13 @@ main {
   margin-bottom: 0;
 }
 
+.setting-item.info-only {
+  background: #f0f7ff;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
 /* 開關樣式 */
 .switch-label {
   display: flex;

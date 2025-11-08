@@ -1,6 +1,7 @@
 /**
- * Content Script - 浮動氣泡按鈕
- * 在網頁上顯示一個可拖曳的浮動按鈕，點擊後複製清理後的網址
+ * Content Script - 浮動氣泡按鈕 & 剪貼簿監聽
+ * 功能一：在網頁上顯示一個可拖曳的浮動按鈕，點擊後複製清理後的網址
+ * 功能二：監聽剪貼簿變化，自動清理追蹤參數
  */
 
 console.log('🚀 Short URL Copier: Content Script 開始載入');
@@ -12,7 +13,166 @@ if (window.shortURLCopierInjected) {
   window.shortURLCopierInjected = true;
   console.log('✓ Short URL Copier: 設定注入標記');
 
-  // 等待 DOM 完全載入
+  // 讀取設定
+  async function loadSettings() {
+    const result = await chrome.storage.local.get('settings');
+    return result.settings || {
+      showBubble: true,
+      showNotifications: true
+    };
+  }
+
+  // 建立通知容器（全域，兩個功能都會用到）
+  let notificationElement = null;
+
+  /**
+   * 取得或建立通知元素
+   */
+  function getNotificationElement() {
+    if (!notificationElement) {
+      notificationElement = document.createElement('div');
+      notificationElement.id = 'short-url-copier-notification';
+      if (document.body) {
+        document.body.appendChild(notificationElement);
+      }
+    }
+    return notificationElement;
+  }
+
+  /**
+   * 顯示通知訊息（全域函數）
+   */
+  async function showNotification(message, type = 'success') {
+    const settings = await loadSettings();
+    if (!settings.showNotifications) {
+      console.log('🔕 通知已關閉:', message);
+      return;
+    }
+
+    const notification = getNotificationElement();
+    notification.textContent = message;
+    notification.className = `show ${type}`;
+    console.log('📢 通知:', message, type);
+
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 2500);
+  }
+
+  /**
+   * 初始化剪貼簿監聽功能（始終運作，不受設定影響）
+   */
+  async function initClipboardMonitoring() {
+    console.log('📋 Short URL Copier: 開始初始化剪貼簿監聽');
+
+    if (!document.body) {
+      console.log('⏳ Short URL Copier: body 尚未載入，等待中...');
+      setTimeout(initClipboardMonitoring, 100);
+      return;
+    }
+
+    // 剪貼簿監聽始終啟用，不檢查 autoCleanClipboard 設定
+    console.log('✓ 剪貼簿監聽已啟用（始終運作）');
+
+    // 監聽複製事件，自動清理剪貼簿中的 URL
+    let isProcessingClipboard = false; // 防止無限循環
+
+    document.addEventListener('copy', async (e) => {
+      if (isProcessingClipboard) return;
+
+      try {
+        // 取得剪貼簿內容
+        const selection = window.getSelection().toString();
+
+        // 如果選取的內容看起來像 URL，則清理它
+        if (selection && (selection.startsWith('http://') || selection.startsWith('https://'))) {
+          console.log('📋 偵測到複製 URL:', selection);
+
+          // 清理 URL
+          chrome.runtime.sendMessage(
+            { action: 'cleanURL', url: selection },
+            async (response) => {
+              if (response && response.cleanedURL && response.cleanedURL !== selection) {
+                console.log('🧹 清理後的 URL:', response.cleanedURL);
+
+                // 阻止原本的複製
+                e.preventDefault();
+
+                // 複製清理後的 URL
+                isProcessingClipboard = true;
+                try {
+                  await navigator.clipboard.writeText(response.cleanedURL);
+                  showNotification('✓ 已自動清理並複製網址！', 'success');
+                  console.log('✓ 已將清理後的 URL 放入剪貼簿');
+                } catch (error) {
+                  console.error('寫入剪貼簿失敗:', error);
+                } finally {
+                  isProcessingClipboard = false;
+                }
+              }
+            }
+          );
+        }
+      } catch (error) {
+        console.error('處理複製事件失敗:', error);
+      }
+    });
+
+    // 監聽剪貼簿變化（使用 Clipboard API 的替代方案）
+    // 當用戶使用網站自帶的「複製連結」按鈕時觸發
+    let lastClipboardCheck = '';
+    let clipboardCheckInterval = null;
+
+    // 啟用主動剪貼簿監聽（在所有網站）
+    console.log('🔍 啟用剪貼簿輪詢監聽');
+
+    // 每 500ms 檢查一次剪貼簿
+    clipboardCheckInterval = setInterval(async () => {
+      if (isProcessingClipboard) return;
+
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+
+        // 如果剪貼簿內容改變且是 URL
+        if (clipboardText !== lastClipboardCheck &&
+            (clipboardText.startsWith('http://') || clipboardText.startsWith('https://'))) {
+
+          lastClipboardCheck = clipboardText;
+          console.log('📋 偵測到剪貼簿變化:', clipboardText);
+
+          // 清理 URL
+          chrome.runtime.sendMessage(
+            { action: 'cleanURL', url: clipboardText },
+            async (response) => {
+              if (response && response.cleanedURL && response.cleanedURL !== clipboardText) {
+                console.log('🧹 自動清理剪貼簿 URL:', response.cleanedURL);
+
+                isProcessingClipboard = true;
+                try {
+                  await navigator.clipboard.writeText(response.cleanedURL);
+                  lastClipboardCheck = response.cleanedURL;
+                  showNotification('✓ 已自動清理剪貼簿網址！', 'success');
+                } catch (error) {
+                  console.error('更新剪貼簿失敗:', error);
+                } finally {
+                  isProcessingClipboard = false;
+                }
+              }
+            }
+          );
+        }
+      } catch (error) {
+        // 讀取剪貼簿失敗（可能沒有權限），忽略錯誤
+        // 這是正常的，因為頁面沒有焦點時無法讀取剪貼簿
+      }
+    }, 500);
+
+    console.log('✓ Short URL Copier: 剪貼簿監聽已完全載入');
+  }
+
+  /**
+   * 初始化浮動氣泡（獨立功能）
+   */
   async function initBubble() {
     console.log('📝 Short URL Copier: 開始初始化浮動氣泡');
 
@@ -22,17 +182,10 @@ if (window.shortURLCopierInjected) {
       return;
     }
 
-    // 讀取設定
-    const result = await chrome.storage.local.get('settings');
-    const settings = result.settings || {
-      showBubble: true,
-      autoCleanClipboard: true,
-      showNotifications: true
-    };
+    const settings = await loadSettings();
+    console.log('⚙️ 浮動氣泡設定:', settings);
 
-    console.log('⚙️ 目前設定:', settings);
-
-    // 如果設定為不顯示浮動氣泡，則直接返回
+    // 如果設定為不顯示浮動氣泡，則跳過氣泡建立
     if (!settings.showBubble) {
       console.log('❌ 浮動氣泡已在設定中關閉');
       return;
@@ -55,14 +208,11 @@ if (window.shortURLCopierInjected) {
       <div class="bubble-tooltip">點擊複製簡短網址</div>
     `;
 
-    // 通知訊息容器
-    const notification = document.createElement('div');
-    notification.id = 'short-url-copier-notification';
-
     // 添加到頁面
     try {
       document.body.appendChild(bubble);
-      document.body.appendChild(notification);
+      // 確保通知元素也存在
+      getNotificationElement();
       console.log('✓ Short URL Copier: 浮動氣泡已添加到 DOM');
     } catch (error) {
       console.error('✗ Short URL Copier: 添加失敗', error);
@@ -127,24 +277,6 @@ if (window.shortURLCopierInjected) {
 
     // 載入位置
     loadPosition();
-
-    /**
-     * 顯示通知訊息
-     */
-    function showNotification(message, type = 'success') {
-      if (!settings.showNotifications) {
-        console.log('🔕 通知已關閉:', message);
-        return;
-      }
-
-      notification.textContent = message;
-      notification.className = `show ${type}`;
-      console.log('📢 通知:', message, type);
-
-      setTimeout(() => {
-        notification.classList.remove('show');
-      }, 2500);
-    }
 
     /**
      * 複製文字到剪貼簿
@@ -283,117 +415,19 @@ if (window.shortURLCopierInjected) {
       }
     });
 
-    // 監聽複製事件，自動清理剪貼簿中的 URL
-    let isProcessingClipboard = false; // 防止無限循環
-
-    document.addEventListener('copy', async (e) => {
-      if (isProcessingClipboard) return;
-
-      try {
-        // 取得剪貼簿內容
-        const selection = window.getSelection().toString();
-
-        // 如果選取的內容看起來像 URL，則清理它
-        if (selection && (selection.startsWith('http://') || selection.startsWith('https://'))) {
-          console.log('📋 偵測到複製 URL:', selection);
-
-          // 清理 URL
-          chrome.runtime.sendMessage(
-            { action: 'cleanURL', url: selection },
-            async (response) => {
-              if (response && response.cleanedURL && response.cleanedURL !== selection) {
-                console.log('🧹 清理後的 URL:', response.cleanedURL);
-
-                // 阻止原本的複製
-                e.preventDefault();
-
-                // 複製清理後的 URL
-                isProcessingClipboard = true;
-                try {
-                  await navigator.clipboard.writeText(response.cleanedURL);
-                  showNotification('✓ 已自動清理並複製網址！', 'success');
-                  console.log('✓ 已將清理後的 URL 放入剪貼簿');
-                } catch (error) {
-                  console.error('寫入剪貼簿失敗:', error);
-                } finally {
-                  isProcessingClipboard = false;
-                }
-              }
-            }
-          );
-        }
-      } catch (error) {
-        console.error('處理複製事件失敗:', error);
-      }
-    });
-
-    // 監聽剪貼簿變化（使用 Clipboard API 的替代方案）
-    // 當用戶使用網站自帶的「複製連結」按鈕時觸發
-    let lastClipboardCheck = '';
-    let clipboardCheckInterval = null;
-
-    // 只在特定社群媒體網站啟用主動監聽
-    const socialMediaDomains = [
-      'instagram.com', 'facebook.com', 'twitter.com', 'x.com',
-      'tiktok.com', 'linkedin.com', 'pinterest.com', 'reddit.com'
-    ];
-
-    const currentHost = window.location.hostname;
-    const isSocialMedia = socialMediaDomains.some(domain => currentHost.includes(domain));
-
-    if (isSocialMedia && settings.autoCleanClipboard) {
-      console.log('🔍 在社群媒體網站啟用剪貼簿監聽');
-
-      // 每 500ms 檢查一次剪貼簿
-      clipboardCheckInterval = setInterval(async () => {
-        if (isProcessingClipboard) return;
-
-        try {
-          const clipboardText = await navigator.clipboard.readText();
-
-          // 如果剪貼簿內容改變且是 URL
-          if (clipboardText !== lastClipboardCheck &&
-              (clipboardText.startsWith('http://') || clipboardText.startsWith('https://'))) {
-
-            lastClipboardCheck = clipboardText;
-            console.log('📋 偵測到剪貼簿變化:', clipboardText);
-
-            // 清理 URL
-            chrome.runtime.sendMessage(
-              { action: 'cleanURL', url: clipboardText },
-              async (response) => {
-                if (response && response.cleanedURL && response.cleanedURL !== clipboardText) {
-                  console.log('🧹 自動清理剪貼簿 URL:', response.cleanedURL);
-
-                  isProcessingClipboard = true;
-                  try {
-                    await navigator.clipboard.writeText(response.cleanedURL);
-                    lastClipboardCheck = response.cleanedURL;
-                    showNotification('✓ 已自動清理剪貼簿網址！', 'success');
-                  } catch (error) {
-                    console.error('更新剪貼簿失敗:', error);
-                  } finally {
-                    isProcessingClipboard = false;
-                  }
-                }
-              }
-            );
-          }
-        } catch (error) {
-          // 讀取剪貼簿失敗（可能沒有權限），忽略錯誤
-        }
-      }, 500);
-    }
-
     console.log('✓ Short URL Copier: 浮動氣泡已完全載入');
   }
 
-  // 開始初始化
+  // 開始初始化 - 兩個功能獨立啟動
   if (document.readyState === 'loading') {
     console.log('⏳ Short URL Copier: 等待 DOMContentLoaded');
-    document.addEventListener('DOMContentLoaded', initBubble);
+    document.addEventListener('DOMContentLoaded', () => {
+      initBubble();           // 氣泡功能
+      initClipboardMonitoring(); // 剪貼簿監聽功能
+    });
   } else {
     console.log('✓ Short URL Copier: DOM 已就緒，立即初始化');
-    initBubble();
+    initBubble();           // 氣泡功能
+    initClipboardMonitoring(); // 剪貼簿監聽功能
   }
 }
