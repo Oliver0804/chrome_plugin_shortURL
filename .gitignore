@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 編輯器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# 打包檔案（保留最新版本即可）
+short-url-copier-v1.0.0.zip
+short-url-copier-v1.1.0.zip
+short-url-copier-v1.2.0.zip
+
+# 測試和開發檔案
+content-test.js
+test-bubble.html
+test-urls.html
+diagnose.html
+generate-icons.html
+generate-icons.js
+generate-simple-icons.js
+DEBUG.md
+USAGE.md
+INSTALL.md
+
+# Node modules (如果之後需要)
+node_modules/
+package-lock.json
+
+# 測試覆蓋率
+coverage/
+
+# 日誌
+*.log
+npm-debug.log*

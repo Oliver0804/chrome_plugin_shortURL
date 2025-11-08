@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Short URL Copier - 設定</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="logo.png" alt="Short URL Copier" class="logo">
+      <h1>Short URL Copier 設定</h1>
+    </header>
+
+    <main>
+      <section class="settings-section">
+        <h2>🫧 浮動氣泡設定</h2>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="showBubble" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">顯示浮動氣泡</span>
+          </label>
+          <p class="setting-description">
+            在每個網頁右下角顯示浮動氣泡按鈕，方便快速複製清理後的網址
+          </p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>📋 剪貼簿監聽設定</h2>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="autoCleanClipboard" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">自動清理剪貼簿網址</span>
+          </label>
+          <p class="setting-description">
+            在社群媒體網站自動監聽並清理複製的網址（Instagram、Facebook、Twitter 等）
+          </p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>⚙️ 其他設定</h2>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="showNotifications" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">顯示通知訊息</span>
+          </label>
+          <p class="setting-description">
+            複製成功或清理網址時顯示通知訊息
+          </p>
+        </div>
+      </section>
+
+      <div class="button-group">
+        <button id="saveButton" class="btn btn-primary">儲存設定</button>
+        <button id="resetButton" class="btn btn-secondary">重置為預設值</button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </main>
+
+    <footer>
+      <p>
+        <strong>Short URL Copier</strong> v1.3.0<br>
+        作者：BASHCAT |
+        <a href="https://github.com/Oliver0804" target="_blank">GitHub</a>
+      </p>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

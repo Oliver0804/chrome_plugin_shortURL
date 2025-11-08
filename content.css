@@ -1,0 +1,171 @@
+/**
+ * 浮動氣泡樣式 - 簡化版
+ */
+
+#short-url-copier-bubble {
+  position: fixed !important;
+  width: 120px !important;
+  height: 120px !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  z-index: 2147483647 !important;
+  cursor: grab !important;
+  user-select: none !important;
+  transition: transform 0.2s ease !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  animation: short-url-float 3s ease-in-out infinite !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 浮動動畫 */
+@keyframes short-url-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* 拖曳狀態 */
+#short-url-copier-bubble.dragging {
+  cursor: grabbing !important;
+  animation: none !important;
+  transform: scale(1.1) !important;
+  box-shadow: none !important;
+}
+
+/* 懸停狀態 */
+#short-url-copier-bubble.hover {
+  transform: scale(1.15) !important;
+  box-shadow: none !important;
+}
+
+#short-url-copier-bubble.hover .bubble-tooltip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateX(-50%) translateY(-10px) !important;
+}
+
+/* 複製成功動畫 */
+#short-url-copier-bubble.copied {
+  animation: short-url-copied-pulse 0.3s ease !important;
+}
+
+@keyframes short-url-copied-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* 圖示容器 - 已移除，改用 logo.png 背景圖 */
+
+/* 工具提示 */
+#short-url-copier-bubble .bubble-tooltip {
+  position: absolute !important;
+  top: -40px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(0) !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: white !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: all 0.2s ease !important;
+  pointer-events: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
+  z-index: 2147483647 !important;
+}
+
+#short-url-copier-bubble .bubble-tooltip::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: -6px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-left: 6px solid transparent !important;
+  border-right: 6px solid transparent !important;
+  border-top: 6px solid rgba(0, 0, 0, 0.85) !important;
+}
+
+/* 通知訊息 */
+#short-url-copier-notification {
+  position: fixed !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(-100px) !important;
+  background: white !important;
+  color: #333 !important;
+  padding: 12px 24px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  z-index: 2147483647 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: all 0.3s ease !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
+  max-width: 400px !important;
+  text-align: center !important;
+  pointer-events: none !important;
+}
+
+#short-url-copier-notification.show {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+#short-url-copier-notification.success {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+}
+
+#short-url-copier-notification.error {
+  background: #fed7d7 !important;
+  color: #742a2a !important;
+  border: 2px solid #fc8181 !important;
+}
+
+#short-url-copier-notification.info {
+  background: #e6fffa !important;
+  color: #234e52 !important;
+  border: 2px solid #81e6d9 !important;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  #short-url-copier-bubble {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  #short-url-copier-bubble .bubble-tooltip {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+
+  #short-url-copier-notification {
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+    max-width: 300px !important;
+  }
+}
