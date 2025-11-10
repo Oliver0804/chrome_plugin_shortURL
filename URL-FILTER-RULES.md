@@ -2,7 +2,7 @@
 
 > **Short URL Copier** Chrome 插件 - URL 清理規則說明文件
 >
-> 版本：v1.3.2
+> 版本：v1.3.3
 > 最後更新：2025-11-10
 
 ---
@@ -54,15 +54,18 @@
 
 ### 🛒 電商平台
 
-#### 淘寶 (item.taobao.com)
+#### 淘寶 / 天貓 (item.taobao.com, detail.tmall.com)
 - **模式**: 保留模式
 - **保留參數**: `id`
 - **說明**: 只保留商品 ID，移除所有追蹤參數
 
 **範例**:
 ```
-原始: https://item.taobao.com/item.htm?id=123456&spm=a2xxx&abbucket=3
-清理: https://item.taobao.com/item.htm?id=123456
+淘寶原始: https://item.taobao.com/item.htm?id=123456&spm=a2xxx&abbucket=3
+淘寶清理: https://item.taobao.com/item.htm?id=123456
+
+天貓原始: https://detail.tmall.com/item.htm?bxsign=xxx&id=679540837892&tbSocialPopKey=shareItem
+天貓清理: https://detail.tmall.com/item.htm?id=679540837892
 ```
 
 ---
@@ -408,7 +411,8 @@ console.log('清理:', cleaned);
 
 | 網站 | 保留參數 | 用途 |
 |------|---------|------|
-| item.taobao.com | id | 商品 ID |
+| item.taobao.com | id | 淘寶商品 ID |
+| detail.tmall.com | id | 天貓商品 ID |
 | instagram.com | *無* | 移除所有參數 |
 | youtube.com | v, list | 影片 ID、播放清單 |
 | youtu.be | *無* | 移除所有參數 |

@@ -5,6 +5,11 @@ const URL_RULES = {
     keepParams: ['id']
   },
 
+  // 天貓：只保留 id 參數
+  'detail.tmall.com': {
+    keepParams: ['id']
+  },
+
   // Instagram：移除所有查詢參數
   'www.instagram.com': {
     keepParams: []
