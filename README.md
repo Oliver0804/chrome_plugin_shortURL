@@ -2,7 +2,7 @@
 
 一個強大的 Chrome 擴充功能，自動清理網址中的追蹤參數，讓分享連結更簡潔！
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
+[![Version](https://img.shields.io/badge/version-1.3.4-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## ✨ 主要功能
@@ -29,6 +29,8 @@
 
 ### 🛒 電商平台
 - **淘寶**：只保留商品 ID
+- **天貓**：只保留商品 ID
+- **蝦皮購物**：自動轉換為短網址格式，移除追蹤參數
 - **Amazon**：保留關鍵字和搜尋參數
 - **eBay**：保留必要參數
 - **AliExpress**：移除分享追蹤參數
@@ -57,7 +59,7 @@
 ## 📦 安裝方式
 
 ### 從 Release 下載
-1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.0.zip`
+1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.4.zip`
 2. 解壓縮 ZIP 檔案
 3. 開啟 Chrome 瀏覽器，進入 `chrome://extensions/`
 4. 開啟右上角「開發人員模式」
@@ -127,6 +129,15 @@ shortURL/
 ```
 
 ## 📝 更新日誌
+
+### v1.3.4 (2025-01-10)
+- 🛒 新增蝦皮購物 (shopee.tw) URL 支援
+- 🔄 自動轉換長網址為短網址格式
+- 🧹 移除蝦皮網址追蹤參數
+
+### v1.3.3 (2025-01-09)
+- 🛒 新增天貓 (tmall.com) URL 支援
+- 📄 新增 URL 過濾規則文件
 
 ### v1.3.0 (2025-01-09)
 - ⚙️ 新增設定頁面
