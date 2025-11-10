@@ -81,29 +81,37 @@ if (window.shortURLCopierInjected) {
       if (isProcessingClipboard) return;
 
       try {
-        // 取得剪貼簿內容
+        // 取得選取的內容
         const selection = window.getSelection().toString();
 
-        // 如果選取的內容看起來像 URL，則清理它
-        if (selection && (selection.startsWith('http://') || selection.startsWith('https://'))) {
-          console.log('📋 偵測到複製 URL:', selection);
+        if (!selection) return;
+
+        // 檢查選取內容中是否包含 URL（支援「標題 + URL」格式）
+        const urlMatch = selection.match(/(https?:\/\/[^\s]+)/);
+
+        if (urlMatch) {
+          const originalURL = urlMatch[1];
+          console.log('📋 偵測到複製內容:', selection);
+          console.log('🔗 提取到 URL:', originalURL);
 
           // 清理 URL
           chrome.runtime.sendMessage(
-            { action: 'cleanURL', url: selection },
+            { action: 'cleanURL', url: originalURL },
             async (response) => {
-              if (response && response.cleanedURL && response.cleanedURL !== selection) {
+              if (response && response.cleanedURL && response.cleanedURL !== originalURL) {
                 console.log('🧹 清理後的 URL:', response.cleanedURL);
 
                 // 阻止原本的複製
                 e.preventDefault();
 
-                // 複製清理後的 URL
+                // 替換原文中的 URL 為清理後的版本
+                const cleanedText = selection.replace(originalURL, response.cleanedURL);
+
                 isProcessingClipboard = true;
                 try {
-                  await navigator.clipboard.writeText(response.cleanedURL);
+                  await navigator.clipboard.writeText(cleanedText);
                   showNotification('✓ 已自動清理並複製網址！', 'success');
-                  console.log('✓ 已將清理後的 URL 放入剪貼簿');
+                  console.log('✓ 已將清理後的內容放入剪貼簿:', cleanedText);
                 } catch (error) {
                   console.error('寫入剪貼簿失敗:', error);
                 } finally {
@@ -133,33 +141,40 @@ if (window.shortURLCopierInjected) {
       try {
         const clipboardText = await navigator.clipboard.readText();
 
-        // 如果剪貼簿內容改變且是 URL
-        if (clipboardText !== lastClipboardCheck &&
-            (clipboardText.startsWith('http://') || clipboardText.startsWith('https://'))) {
+        // 如果剪貼簿內容改變
+        if (clipboardText !== lastClipboardCheck) {
+          // 提取 URL（支援「標題 + URL」格式，如 B站）
+          const urlMatch = clipboardText.match(/(https?:\/\/[^\s]+)/);
 
-          lastClipboardCheck = clipboardText;
-          console.log('📋 偵測到剪貼簿變化:', clipboardText);
+          if (urlMatch) {
+            const originalURL = urlMatch[1];
+            lastClipboardCheck = clipboardText;
+            console.log('📋 偵測到剪貼簿變化:', clipboardText);
+            console.log('🔗 提取到 URL:', originalURL);
 
-          // 清理 URL
-          chrome.runtime.sendMessage(
-            { action: 'cleanURL', url: clipboardText },
-            async (response) => {
-              if (response && response.cleanedURL && response.cleanedURL !== clipboardText) {
-                console.log('🧹 自動清理剪貼簿 URL:', response.cleanedURL);
+            // 清理 URL
+            chrome.runtime.sendMessage(
+              { action: 'cleanURL', url: originalURL },
+              async (response) => {
+                if (response && response.cleanedURL && response.cleanedURL !== originalURL) {
+                  console.log('🧹 自動清理剪貼簿 URL:', response.cleanedURL);
 
-                isProcessingClipboard = true;
-                try {
-                  await navigator.clipboard.writeText(response.cleanedURL);
-                  lastClipboardCheck = response.cleanedURL;
-                  showNotification('✓ 已自動清理剪貼簿網址！', 'success');
-                } catch (error) {
-                  console.error('更新剪貼簿失敗:', error);
-                } finally {
-                  isProcessingClipboard = false;
+                  isProcessingClipboard = true;
+                  try {
+                    // 替換原文中的 URL 為清理後的版本
+                    const cleanedText = clipboardText.replace(originalURL, response.cleanedURL);
+                    await navigator.clipboard.writeText(cleanedText);
+                    lastClipboardCheck = cleanedText;
+                    showNotification('✓ 已自動清理剪貼簿網址！', 'success');
+                  } catch (error) {
+                    console.error('更新剪貼簿失敗:', error);
+                  } finally {
+                    isProcessingClipboard = false;
+                  }
                 }
               }
-            }
-          );
+            );
+          }
         }
       } catch (error) {
         // 讀取剪貼簿失敗（可能沒有權限），忽略錯誤

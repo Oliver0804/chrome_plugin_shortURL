@@ -2,7 +2,7 @@
 
 一個強大的 Chrome 擴充功能，自動清理網址中的追蹤參數，讓分享連結更簡潔！
 
-[![Version](https://img.shields.io/badge/version-1.3.4-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
+[![Version](https://img.shields.io/badge/version-1.3.6-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## ✨ 主要功能
@@ -46,6 +46,7 @@
 
 ### 🎬 影音平台
 - **YouTube**：只保留影片 ID 和播放清單
+- **Bilibili**：移除所有追蹤參數
 
 ### 🌍 通用追蹤參數
 自動移除 40+ 追蹤參數：
@@ -59,7 +60,7 @@
 ## 📦 安裝方式
 
 ### 從 Release 下載
-1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.4.zip`
+1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.6.zip`
 2. 解壓縮 ZIP 檔案
 3. 開啟 Chrome 瀏覽器，進入 `chrome://extensions/`
 4. 開啟右上角「開發人員模式」
@@ -129,6 +130,13 @@ shortURL/
 ```
 
 ## 📝 更新日誌
+
+### v1.3.6 (2025-01-10)
+- 🎬 新增 Bilibili (bilibili.com) URL 支援
+- 🧹 自動移除 B 站影片連結的追蹤參數
+- ✨ 支援「標題 + URL」格式的剪貼簿清理（B站複製連結格式）
+- 🔧 新增 `host_permissions` 以確保 Content Script 正常注入
+- 🛠️ 改進剪貼簿監聽邏輯，使用正則表達式智能提取 URL
 
 ### v1.3.4 (2025-01-10)
 - 🛒 新增蝦皮購物 (shopee.tw) URL 支援

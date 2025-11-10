@@ -2,8 +2,8 @@
 
 > **Short URL Copier** Chrome 插件 - URL 清理規則說明文件
 >
-> 版本：v1.3.3
-> 最後更新：2025-11-10
+> 版本：v1.3.6
+> 最後更新：2025-01-10
 
 ---
 
@@ -188,6 +188,19 @@
 ```
 原始: https://youtu.be/dQw4w9WgXcQ?si=abc123
 清理: https://youtu.be/dQw4w9WgXcQ
+```
+
+---
+
+#### Bilibili (bilibili.com, www.bilibili.com)
+- **模式**: 保留模式
+- **保留參數**: *無*
+- **說明**: 移除所有查詢參數，保留影片 ID（已在路徑中）
+
+**範例**:
+```
+原始: https://www.bilibili.com/video/BV1Rrp3zYEd6?trackid=web_related_0.router-related-2206146-trbxs.1762774468858.818
+清理: https://www.bilibili.com/video/BV1Rrp3zYEd6
 ```
 
 ---
@@ -416,6 +429,7 @@ console.log('清理:', cleaned);
 | instagram.com | *無* | 移除所有參數 |
 | youtube.com | v, list | 影片 ID、播放清單 |
 | youtu.be | *無* | 移除所有參數 |
+| bilibili.com | *無* | 移除所有參數 |
 | facebook.com | fbid | Facebook ID |
 | linkedin.com | trackingId | 追蹤 ID |
 | amazon.com | keywords, qid, sr | 搜尋參數 |

@@ -104,6 +104,14 @@ const URL_RULES = {
     removeParams: ['srcSns', 'spreadType', 'bizType', 'social_params']
   },
 
+  // Bilibili：移除所有查詢參數
+  'www.bilibili.com': {
+    keepParams: []
+  },
+  'bilibili.com': {
+    keepParams: []
+  },
+
   // 蝦皮購物：轉換為短 URL 格式
   'shopee.tw': {
     pathTransform: true,
