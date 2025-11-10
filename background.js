@@ -104,6 +104,12 @@ const URL_RULES = {
     removeParams: ['srcSns', 'spreadType', 'bizType', 'social_params']
   },
 
+  // 蝦皮購物：轉換為短 URL 格式
+  'shopee.tw': {
+    pathTransform: true,
+    keepParams: []
+  },
+
   // 通用規則：移除常見追蹤參數
   '*': {
     removeParams: [
@@ -136,6 +142,27 @@ const URL_RULES = {
 };
 
 /**
+ * 轉換蝦皮 URL 為短網址格式
+ * @param {URL} url - URL 物件
+ * @returns {boolean} - 是否成功轉換
+ */
+function transformShopeeURL(url) {
+  // 匹配長 URL 格式: /商品名稱-i.店鋪ID.商品ID
+  const longFormatMatch = url.pathname.match(/-i\.(\d+)\.(\d+)/);
+
+  if (longFormatMatch) {
+    const shopId = longFormatMatch[1];
+    const productId = longFormatMatch[2];
+
+    // 轉換為短 URL 格式: /product/店鋪ID/商品ID
+    url.pathname = `/product/${shopId}/${productId}`;
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 清理 URL，移除不必要的參數
  * @param {string} urlString - 原始 URL
  * @returns {string} - 清理後的 URL
@@ -147,6 +174,11 @@ function cleanURL(urlString) {
 
     // 尋找匹配的規則
     let rule = URL_RULES[hostname] || URL_RULES['*'];
+
+    // 處理路徑轉換（如蝦皮購物）
+    if (rule.pathTransform && hostname === 'shopee.tw') {
+      transformShopeeURL(url);
+    }
 
     // 如果有 keepParams 規則，只保留指定參數
     if (rule.keepParams !== undefined) {
