@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threads URL 測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-case {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .url {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            word-break: break-all;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+        }
+        .result {
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Threads URL 清理測試</h1>
+
+    <div class="test-case">
+        <h3>測試 1: threads.com</h3>
+        <p class="label">原始 URL:</p>
+        <div class="url">https://www.threads.com/@strawberry0628/post/DQ6o9Tqkjxs?xmt=AQF068pnd08hpnLuXHUCgfS2PCyIJlHaqBI12g0ZTSKuup4s92XSPl8QyTnCzJg_RgiktAR9&slof=1</div>
+
+        <p class="label">預期結果:</p>
+        <div class="url result">https://www.threads.com/@strawberry0628/post/DQ6o9Tqkjxs</div>
+
+        <p class="label">實際結果:</p>
+        <div class="url" id="actual-result-1">載入中...</div>
+    </div>
+
+    <div class="test-case">
+        <h3>測試 2: threads.net</h3>
+        <p class="label">原始 URL:</p>
+        <div class="url">https://www.threads.net/@strawberry0628/post/DQ6o9Tqkjxs?xmt=AQF068pnd08hpnLuXHUCgfS2PCyIJlHaqBI12g0ZTSKuup4s92XSPl8QyTnCzJg_RgiktAR9&slof=1</div>
+
+        <p class="label">預期結果:</p>
+        <div class="url result">https://www.threads.net/@strawberry0628/post/DQ6o9Tqkjxs</div>
+
+        <p class="label">實際結果:</p>
+        <div class="url" id="actual-result-2">載入中...</div>
+    </div>
+
+    <script src="background.js"></script>
+    <script>
+        // 測試案例
+        const testCases = [
+            {
+                name: '測試 1 (.com)',
+                url: 'https://www.threads.com/@strawberry0628/post/DQ6o9Tqkjxs?xmt=AQF068pnd08hpnLuXHUCgfS2PCyIJlHaqBI12g0ZTSKuup4s92XSPl8QyTnCzJg_RgiktAR9&slof=1',
+                expected: 'https://www.threads.com/@strawberry0628/post/DQ6o9Tqkjxs',
+                elementId: 'actual-result-1'
+            },
+            {
+                name: '測試 2 (.net)',
+                url: 'https://www.threads.net/@strawberry0628/post/DQ6o9Tqkjxs?xmt=AQF068pnd08hpnLuXHUCgfS2PCyIJlHaqBI12g0ZTSKuup4s92XSPl8QyTnCzJg_RgiktAR9&slof=1',
+                expected: 'https://www.threads.net/@strawberry0628/post/DQ6o9Tqkjxs',
+                elementId: 'actual-result-2'
+            }
+        ];
+
+        // 執行所有測試
+        testCases.forEach(test => {
+            const result = cleanURL(test.url);
+            const resultElement = document.getElementById(test.elementId);
+
+            resultElement.textContent = result;
+
+            // 驗證結果
+            if (result === test.expected) {
+                resultElement.style.color = '#27ae60';
+                console.log(`✅ ${test.name} 通過！`);
+            } else {
+                resultElement.style.color = '#e74c3c';
+                console.log(`❌ ${test.name} 失敗！`);
+                console.log('預期:', test.expected);
+                console.log('實際:', result);
+            }
+        });
+    </script>
+</body>
+</html>

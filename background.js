@@ -112,6 +112,20 @@ const URL_RULES = {
     keepParams: []
   },
 
+  // Threads：移除所有查詢參數（支援 .com 和 .net）
+  'www.threads.com': {
+    keepParams: []
+  },
+  'threads.com': {
+    keepParams: []
+  },
+  'www.threads.net': {
+    keepParams: []
+  },
+  'threads.net': {
+    keepParams: []
+  },
+
   // 蝦皮購物：轉換為短 URL 格式
   'shopee.tw': {
     pathTransform: true,

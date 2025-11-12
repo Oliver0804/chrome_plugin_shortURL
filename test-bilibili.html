@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilibili URL 清理測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Bilibili URL 清理功能測試</h1>
+
+    <div class="test-box">
+        <h2>測試 1: 標準 Bilibili URL</h2>
+        <p><strong>測試 URL:</strong></p>
+        <input type="text" id="test1" value="https://www.bilibili.com/video/BV1ZqyBB2EkS/?share_source=copy_web&vd_source=750a73dce5b20764cb3b69f12be39ec6" readonly>
+        <button onclick="testURL('test1', 'result1')">測試清理</button>
+        <div id="result1" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>測試 2: 另一個 Bilibili URL</h2>
+        <p><strong>測試 URL:</strong></p>
+        <input type="text" id="test2" value="https://www.bilibili.com/video/BV1Rrp3zYEd6?trackid=web_related_0.router-related-2206146-trbxs.1762774468858.818" readonly>
+        <button onclick="testURL('test2', 'result2')">測試清理</button>
+        <div id="result2" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>測試 3: 不含追蹤參數的乾淨 URL</h2>
+        <p><strong>測試 URL:</strong></p>
+        <input type="text" id="test3" value="https://www.bilibili.com/video/BV1ZqyBB2EkS/" readonly>
+        <button onclick="testURL('test3', 'result3')">測試清理</button>
+        <div id="result3" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-box">
+        <h2>自訂測試</h2>
+        <p><strong>輸入要測試的 URL:</strong></p>
+        <input type="text" id="custom" placeholder="貼上要測試的 Bilibili URL...">
+        <button onclick="testURL('custom', 'resultCustom')">測試清理</button>
+        <div id="resultCustom" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        // 從 background.js 複製 URL_RULES 和 cleanURL 函數
+        const URL_RULES = {
+            'www.bilibili.com': {
+                keepParams: []
+            },
+            'bilibili.com': {
+                keepParams: []
+            },
+            '*': {
+                removeParams: [
+                    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+                    '_ga', '_gl', 'ga_source', 'ga_medium', 'ga_campaign', 'ga_term', 'ga_content',
+                    'fbclid', '_fbc', '_fbp', 'gclid', 'gclsrc', '_gcl_aw',
+                    'msclkid', 'ttclid', 'ScCid', 'li_fat_id',
+                    'mc_cid', 'mc_eid', 'emci', 'emdi', 'ceid',
+                    'share', 'share_id', 'shared', 'socialref', 'hootPostID', '__s',
+                    'ref', 'referer', 'referrer', 'source', 'sourceid',
+                    'rsid', 'spm', 'scm', 'pvid', 'pos', 'abbucket',
+                    'algo_expid', 'algo_pvid', 'btsid', 'ws_ab_test'
+                ]
+            }
+        };
+
+        function cleanURL(urlString) {
+            try {
+                const url = new URL(urlString);
+                const hostname = url.hostname;
+
+                let rule = URL_RULES[hostname] || URL_RULES['*'];
+
+                if (rule.keepParams !== undefined) {
+                    const newParams = new URLSearchParams();
+
+                    rule.keepParams.forEach(param => {
+                        if (url.searchParams.has(param)) {
+                            newParams.set(param, url.searchParams.get(param));
+                        }
+                    });
+
+                    url.search = newParams.toString();
+                }
+                else if (rule.removeParams) {
+                    rule.removeParams.forEach(param => {
+                        url.searchParams.delete(param);
+                    });
+
+                    if (hostname !== '*') {
+                        URL_RULES['*'].removeParams.forEach(param => {
+                            url.searchParams.delete(param);
+                        });
+                    }
+                }
+
+                return url.toString();
+            } catch (error) {
+                console.error('URL 解析錯誤:', error);
+                return urlString;
+            }
+        }
+
+        function testURL(inputId, resultId) {
+            const input = document.getElementById(inputId);
+            const result = document.getElementById(resultId);
+            const originalURL = input.value.trim();
+
+            if (!originalURL) {
+                result.className = 'result error';
+                result.textContent = '請輸入 URL';
+                result.style.display = 'block';
+                return;
+            }
+
+            try {
+                const cleanedURL = cleanURL(originalURL);
+                const paramsRemoved = originalURL !== cleanedURL;
+
+                result.className = paramsRemoved ? 'result success' : 'result';
+                result.innerHTML = `
+                    <div><strong>原始 URL:</strong><br>${originalURL}</div>
+                    <div style="margin-top:10px;"><strong>清理後:</strong><br>${cleanedURL}</div>
+                    <div style="margin-top:10px;"><strong>狀態:</strong> ${paramsRemoved ? '✅ 已清理追蹤參數' : '⚠️ 無需清理（已經是乾淨 URL）'}</div>
+                `;
+                result.style.display = 'block';
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `錯誤: ${error.message}`;
+                result.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 一個強大的 Chrome 擴充功能，自動清理網址中的追蹤參數，讓分享連結更簡潔！
 
-[![Version](https://img.shields.io/badge/version-1.3.6-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
+[![Version](https://img.shields.io/badge/version-1.3.7-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## ✨ 主要功能
@@ -40,6 +40,7 @@
 - **Facebook**：只保留 fbid
 - **Twitter / X**：移除追蹤參數
 - **TikTok**：移除裝置和來源資訊
+- **Threads** (.com/.net)：移除所有追蹤參數
 - **LinkedIn**：保留追蹤 ID
 - **Pinterest**：移除追蹤參數
 - **Reddit**：移除分享 ID
@@ -60,7 +61,7 @@
 ## 📦 安裝方式
 
 ### 從 Release 下載
-1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.6.zip`
+1. 前往 [Releases](https://github.com/Oliver0804/chrome_plugin_shortURL/releases) 下載最新版本 `short-url-copier-v1.3.7.zip`
 2. 解壓縮 ZIP 檔案
 3. 開啟 Chrome 瀏覽器，進入 `chrome://extensions/`
 4. 開啟右上角「開發人員模式」
@@ -130,6 +131,11 @@ shortURL/
 ```
 
 ## 📝 更新日誌
+
+### v1.3.7 (2025-01-12)
+- 💬 新增 Threads (threads.com / threads.net) URL 支援
+- 🧹 自動移除 Threads 連結的追蹤參數（xmt, slof 等）
+- 🌐 同時支援 .com 和 .net 兩個域名
 
 ### v1.3.6 (2025-01-10)
 - 🎬 新增 Bilibili (bilibili.com) URL 支援
