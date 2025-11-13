@@ -126,6 +126,14 @@ const URL_RULES = {
     keepParams: []
   },
 
+  // 抖音：保留 modal_id 參數（用於直接打開視頻）
+  'www.douyin.com': {
+    keepParams: ['modal_id']
+  },
+  'douyin.com': {
+    keepParams: ['modal_id']
+  },
+
   // 蝦皮購物：轉換為短 URL 格式
   'shopee.tw': {
     pathTransform: true,
@@ -195,7 +203,24 @@ function cleanURL(urlString) {
     const hostname = url.hostname;
 
     // 尋找匹配的規則
-    let rule = URL_RULES[hostname] || URL_RULES['*'];
+    let rule = URL_RULES[hostname];
+
+    // 特殊處理：天貓的各種子域名
+    if (!rule && (hostname.endsWith('.tmall.com') || hostname === 'tmall.com')) {
+      // 商品詳情頁
+      if (hostname === 'detail.tmall.com') {
+        rule = { keepParams: ['id'] };
+      }
+      // 店鋪頁面：移除所有查詢參數
+      else if (url.pathname.includes('/shop/') || url.searchParams.has('user_number_id')) {
+        rule = { keepParams: [] };
+      }
+    }
+
+    // 如果仍未找到規則，使用通用規則
+    if (!rule) {
+      rule = URL_RULES['*'];
+    }
 
     // 處理路徑轉換（如蝦皮購物）
     if (rule.pathTransform && hostname === 'shopee.tw') {
