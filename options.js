@@ -34,6 +34,22 @@ async function loadSettings() {
 }
 
 /**
+ * 載入並顯示版本號
+ */
+function loadVersion() {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    const versionElement = document.getElementById('version');
+    if (versionElement && manifest.version) {
+      versionElement.textContent = `v${manifest.version}`;
+      console.log('✓ 版本號已載入:', manifest.version);
+    }
+  } catch (error) {
+    console.error('載入版本號失敗:', error);
+  }
+}
+
+/**
  * 儲存設定
  */
 async function saveSettings() {
@@ -87,5 +103,6 @@ function showStatus(message, type = 'success') {
 saveButton.addEventListener('click', saveSettings);
 resetButton.addEventListener('click', resetSettings);
 
-// 頁面載入時載入設定
+// 頁面載入時載入設定和版本號
 loadSettings();
+loadVersion();
