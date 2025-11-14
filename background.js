@@ -18,15 +18,15 @@ const URL_RULES = {
     keepParams: []
   },
 
-  // YouTube：只保留 v 和 list 參數
+  // YouTube：只保留 v 參數（影片 ID）
   'www.youtube.com': {
-    keepParams: ['v', 'list']
+    keepParams: ['v']
   },
   'youtu.be': {
     keepParams: []
   },
   'youtube.com': {
-    keepParams: ['v', 'list']
+    keepParams: ['v']
   },
 
   // Facebook：只保留 fbid 參數
