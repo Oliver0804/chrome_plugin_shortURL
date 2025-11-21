@@ -134,6 +134,14 @@ const URL_RULES = {
     keepParams: ['modal_id']
   },
 
+  // 酷澎台灣 (Coupang Taiwan)：移除所有查詢參數，商品 ID 已在路徑中
+  'www.tw.coupang.com': {
+    keepParams: []
+  },
+  'tw.coupang.com': {
+    keepParams: []
+  },
+
   // 蝦皮購物：轉換為短 URL 格式
   'shopee.tw': {
     pathTransform: true,
