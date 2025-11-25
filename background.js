@@ -158,6 +158,9 @@ const URL_RULES = {
       // 廣告平台追蹤參數
       'fbclid', '_fbc', '_fbp',           // Facebook
       'gclid', 'gclsrc', '_gcl_aw',       // Google Ads
+      'gad_source', 'gad_campaignid',     // Google Ads (extended)
+      'gbraid', 'wbraid',                  // Google Click ID (iOS/web)
+      'dclid',                             // Google Display Ads
       'msclkid',                           // Microsoft Ads
       'ttclid',                            // TikTok Ads
       'ScCid',                             // Snapchat
