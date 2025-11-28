@@ -29,15 +29,18 @@ const URL_RULES = {
     keepParams: ['v', 't']
   },
 
-  // Facebook：只保留 fbid 參數
+  // Facebook：只保留 fbid 參數，並處理分享連結轉換
   'www.facebook.com': {
-    keepParams: ['fbid']
+    keepParams: ['fbid'],
+    pathTransform: true
   },
   'facebook.com': {
-    keepParams: ['fbid']
+    keepParams: ['fbid'],
+    pathTransform: true
   },
   'm.facebook.com': {
-    keepParams: ['fbid']
+    keepParams: ['fbid'],
+    pathTransform: true
   },
 
   // Twitter/X：移除追蹤參數
@@ -183,6 +186,215 @@ const URL_RULES = {
 };
 
 /**
+ * 檢查是否為 Facebook 分享短連結
+ * @param {URL} url - URL 物件
+ * @returns {boolean} - 是否為分享短連結
+ */
+function isFacebookShareLink(url) {
+  const hostname = url.hostname;
+  if (hostname !== 'www.facebook.com' && hostname !== 'facebook.com' && hostname !== 'm.facebook.com') {
+    return false;
+  }
+  // 匹配 /share/r/, /share/p/, /share/v/ 格式
+  return /^\/share\/[rpv]\/[a-zA-Z0-9]+\/?$/.test(url.pathname);
+}
+
+/**
+ * 偵測 Facebook 分享短連結類型
+ * @param {URL} url - URL 物件
+ * @returns {{type: string, shareId: string}|null} - 類型和 shareId，或 null
+ */
+function detectFacebookShareLink(url) {
+  const hostname = url.hostname;
+  if (hostname !== 'www.facebook.com' && hostname !== 'facebook.com' && hostname !== 'm.facebook.com') {
+    return null;
+  }
+  // 匹配 /share/r/, /share/p/, /share/v/ 格式
+  const match = url.pathname.match(/^\/share\/([rpv])\/([a-zA-Z0-9]+)\/?$/);
+  if (match) {
+    const typeMap = { 'r': 'reel', 'p': 'post', 'v': 'video' };
+    return { type: typeMap[match[1]], shareId: match[2] };
+  }
+  return null;
+}
+
+/**
+ * 從 HTML 內容中提取真實 URL
+ * @param {string} html - HTML 內容
+ * @returns {string|null} - 提取的 URL 或 null
+ */
+function extractUrlFromHtml(html) {
+  // 方法 1: 從 og:url meta tag 提取
+  const ogUrlMatch = html.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i);
+  if (ogUrlMatch && ogUrlMatch[1]) {
+    return ogUrlMatch[1];
+  }
+
+  // 方法 2: 從 canonical link 提取
+  const canonicalMatch = html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i);
+  if (canonicalMatch && canonicalMatch[1]) {
+    return canonicalMatch[1];
+  }
+
+  // 方法 3: 從 redirect URL 提取 (Facebook 有時會在頁面中嵌入)
+  const redirectMatch = html.match(/"redirect_url":"([^"]+)"/);
+  if (redirectMatch && redirectMatch[1]) {
+    return redirectMatch[1].replace(/\\/g, '');
+  }
+
+  return null;
+}
+
+/**
+ * 清理 Facebook URL，移除追蹤參數
+ * @param {string} urlString - URL 字串
+ * @returns {string} - 清理後的 URL
+ */
+function cleanFacebookUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+
+    // Reel: /reel/{id}/
+    const reelMatch = url.pathname.match(/^\/reel\/(\d+)\/?/);
+    if (reelMatch) {
+      return `https://www.facebook.com/reel/${reelMatch[1]}/`;
+    }
+
+    // Watch: /watch/?v={id}
+    if (url.pathname.startsWith('/watch')) {
+      const videoId = url.searchParams.get('v');
+      if (videoId) {
+        return `https://www.facebook.com/watch/?v=${videoId}`;
+      }
+    }
+
+    // Photo: /photo/?fbid={id}
+    if (url.pathname.startsWith('/photo')) {
+      const fbid = url.searchParams.get('fbid');
+      if (fbid) {
+        return `https://www.facebook.com/photo/?fbid=${fbid}`;
+      }
+    }
+
+    // 其他情況：移除常見追蹤參數
+    const paramsToRemove = ['fs', 'rdid', 'share_url', 'mibextid', '__cft__', '__tn__', 'refsrc', '_rdr'];
+    paramsToRemove.forEach(param => url.searchParams.delete(param));
+
+    // 標準化 hostname 為 www.facebook.com
+    url.hostname = 'www.facebook.com';
+
+    return url.toString();
+  } catch (error) {
+    return urlString;
+  }
+}
+
+/**
+ * 解析 Facebook 分享短連結，取得真實 URL
+ * 透過 fetch 追蹤重定向來取得最終 URL
+ * @param {string} shareUrl - 分享短連結
+ * @returns {Promise<string>} - 解析後的真實 URL
+ */
+async function resolveFacebookShareLink(shareUrl) {
+  try {
+    console.log('[FB Share] 開始解析:', shareUrl);
+
+    // 方法 A: 使用 redirect: 'follow' 自動跟隨重定向
+    // Service Worker 中 fetch 會自動跟隨重定向，最終 response.url 就是目標 URL
+    const response = await fetch(shareUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    const finalUrl = response.url;
+    console.log('[FB Share] 重定向後 URL:', finalUrl);
+
+    // 檢查是否已經離開 /share/ 路徑（解析成功）
+    const finalUrlObj = new URL(finalUrl);
+    if (!finalUrlObj.pathname.includes('/share/')) {
+      const cleanedUrl = cleanFacebookUrl(finalUrl);
+      console.log('[FB Share] 方法 A 成功:', cleanedUrl);
+      return cleanedUrl;
+    }
+
+    // 方法 B: 如果重定向沒有離開 /share/，嘗試從 HTML 內容提取
+    console.log('[FB Share] 方法 A 未成功，嘗試從 HTML 提取...');
+    const html = await response.text();
+    const extractedUrl = extractUrlFromHtml(html);
+
+    if (extractedUrl) {
+      const cleanedUrl = cleanFacebookUrl(extractedUrl);
+      console.log('[FB Share] 方法 B 成功:', cleanedUrl);
+      return cleanedUrl;
+    }
+
+    // 如果都失敗，返回原始連結（已清理）
+    console.log('[FB Share] 解析失敗，返回原始連結');
+    const url = new URL(shareUrl);
+    url.search = '';
+    return url.toString();
+
+  } catch (error) {
+    console.error('[FB Share] 解析失敗:', error);
+    // 如果解析失敗，返回原始連結（已清理參數）
+    try {
+      const url = new URL(shareUrl);
+      url.search = '';
+      return url.toString();
+    } catch {
+      return shareUrl;
+    }
+  }
+}
+
+/**
+ * 轉換 Facebook 分享連結為原始連結（同步版本，處理已展開的 URL）
+ * 支援：
+ * - /reel/{id}/?fs=e&rdid=...&share_url=... → /reel/{id}/
+ * - /watch/?v={id}&... → /watch/?v={id}
+ * - /photo/?fbid={id}&... → /photo/?fbid={id}
+ * @param {URL} url - URL 物件
+ * @returns {boolean} - 是否成功轉換
+ */
+function transformFacebookURL(url) {
+  const pathname = url.pathname;
+
+  // 處理已展開的 Reel URL: /reel/{id}/?fs=e&rdid=...&share_url=...
+  const reelMatch = pathname.match(/^\/reel\/(\d+)\/?$/);
+  if (reelMatch) {
+    // 清除所有參數，只保留乾淨的 reel URL
+    url.search = '';
+    url.pathname = `/reel/${reelMatch[1]}/`;
+    return true;
+  }
+
+  // 處理 /watch/?v={video_id}&... 格式
+  const watchMatch = pathname.match(/^\/watch\/?$/);
+  if (watchMatch && url.searchParams.has('v')) {
+    const videoId = url.searchParams.get('v');
+    url.search = '';
+    url.searchParams.set('v', videoId);
+    return true;
+  }
+
+  // 處理一般的 Facebook URL（照片、貼文等）
+  // /photo/?fbid=... → 只保留 fbid
+  const photoMatch = pathname.match(/^\/photo\/?$/);
+  if (photoMatch && url.searchParams.has('fbid')) {
+    const fbid = url.searchParams.get('fbid');
+    url.search = '';
+    url.searchParams.set('fbid', fbid);
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 轉換蝦皮 URL 為短網址格式
  * @param {URL} url - URL 物件
  * @returns {boolean} - 是否成功轉換
@@ -204,11 +416,11 @@ function transformShopeeURL(url) {
 }
 
 /**
- * 清理 URL，移除不必要的參數
+ * 清理 URL，移除不必要的參數（同步版本）
  * @param {string} urlString - 原始 URL
  * @returns {string} - 清理後的 URL
  */
-function cleanURL(urlString) {
+function cleanURLSync(urlString) {
   try {
     const url = new URL(urlString);
     const hostname = url.hostname;
@@ -236,6 +448,14 @@ function cleanURL(urlString) {
     // 處理路徑轉換（如蝦皮購物）
     if (rule.pathTransform && hostname === 'shopee.tw') {
       transformShopeeURL(url);
+    }
+
+    // 處理 Facebook 路徑轉換（已展開的 URL）
+    if (rule.pathTransform && (hostname === 'www.facebook.com' || hostname === 'facebook.com' || hostname === 'm.facebook.com')) {
+      if (transformFacebookURL(url)) {
+        // 如果 Facebook 轉換成功，直接返回結果（已經處理好參數了）
+        return url.toString();
+      }
     }
 
     // 如果有 keepParams 規則，只保留指定參數
@@ -274,11 +494,43 @@ function cleanURL(urlString) {
   }
 }
 
+/**
+ * 清理 URL，移除不必要的參數（非同步版本，支援 Facebook 短連結解析）
+ * @param {string} urlString - 原始 URL
+ * @returns {Promise<string>} - 清理後的 URL
+ */
+async function cleanURL(urlString) {
+  try {
+    const url = new URL(urlString);
+
+    // 檢查是否為 Facebook 分享短連結，如果是則先解析
+    if (isFacebookShareLink(url)) {
+      console.log('偵測到 Facebook 分享短連結，正在解析...');
+      const resolvedUrl = await resolveFacebookShareLink(urlString);
+      console.log('解析完成:', resolvedUrl);
+      return resolvedUrl;
+    }
+
+    // 其他 URL 使用同步版本處理
+    return cleanURLSync(urlString);
+  } catch (error) {
+    console.error('URL 清理錯誤:', error);
+    return urlString;
+  }
+}
+
 // 監聽來自 popup 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'cleanURL') {
-    const cleanedURL = cleanURL(request.url);
-    sendResponse({ cleanedURL: cleanedURL });
+    // 使用非同步處理
+    cleanURL(request.url).then(cleanedURL => {
+      sendResponse({ cleanedURL: cleanedURL });
+    }).catch(error => {
+      console.error('清理 URL 時發生錯誤:', error);
+      sendResponse({ cleanedURL: request.url });
+    });
+    // 返回 true 表示會非同步回應
+    return true;
   }
   return true;
 });

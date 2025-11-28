@@ -49,17 +49,28 @@ if (image) {
       if (tabs[0]) {
         const currentURL = tabs[0].url;
 
+        // 顯示處理中狀態
+        image.style.opacity = '0.5';
+        image.style.cursor = 'wait';
+
         chrome.runtime.sendMessage(
           { action: 'cleanURL', url: currentURL },
           (response) => {
+            // 恢復正常狀態
+            image.style.cursor = 'pointer';
+
             if (response && response.cleanedURL) {
               navigator.clipboard.writeText(response.cleanedURL).then(() => {
-                // 視覺反饋：圖片閃爍
-                image.style.opacity = '0.5';
+                // 視覺反饋：成功閃爍
+                image.style.opacity = '1';
+                image.style.filter = 'brightness(1.2)';
                 setTimeout(() => {
-                  image.style.opacity = '1';
+                  image.style.filter = 'none';
                 }, 200);
               });
+            } else {
+              // 失敗時恢復
+              image.style.opacity = '1';
             }
           }
         );

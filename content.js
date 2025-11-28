@@ -76,7 +76,80 @@ if (window.shortURLCopierInjected) {
 
     // 監聽複製事件，自動清理剪貼簿中的 URL
     let isProcessingClipboard = false; // 防止無限循環
+    let lastClipboardCheck = '';
+    let pendingClipboardCheck = false; // 標記是否有待處理的剪貼簿檢查
 
+    /**
+     * 清理剪貼簿中的 URL
+     * @param {string} clipboardText - 剪貼簿內容
+     * @param {string} source - 來源（用於 log）
+     */
+    async function cleanClipboardURL(clipboardText, source = 'unknown') {
+      if (isProcessingClipboard) return;
+      if (clipboardText === lastClipboardCheck) return;
+
+      // 提取 URL（支援「標題 + URL」格式）
+      const urlMatch = clipboardText.match(/(https?:\/\/[^\s]+)/);
+      if (!urlMatch) return;
+
+      const originalURL = urlMatch[1];
+      lastClipboardCheck = clipboardText;
+      console.log(`📋 [${source}] 偵測到剪貼簿內容:`, clipboardText);
+      console.log('🔗 提取到 URL:', originalURL);
+
+      // 清理 URL
+      chrome.runtime.sendMessage(
+        { action: 'cleanURL', url: originalURL },
+        async (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('通訊錯誤:', chrome.runtime.lastError);
+            return;
+          }
+          if (response && response.cleanedURL && response.cleanedURL !== originalURL) {
+            console.log('🧹 清理後的 URL:', response.cleanedURL);
+
+            isProcessingClipboard = true;
+            try {
+              // 替換原文中的 URL 為清理後的版本
+              const cleanedText = clipboardText.replace(originalURL, response.cleanedURL);
+              await navigator.clipboard.writeText(cleanedText);
+              lastClipboardCheck = cleanedText;
+              showNotification('✓ 已自動清理剪貼簿網址！', 'success');
+              console.log('✓ 已將清理後的內容放入剪貼簿:', cleanedText);
+            } catch (error) {
+              console.error('寫入剪貼簿失敗:', error);
+            } finally {
+              isProcessingClipboard = false;
+            }
+          }
+        }
+      );
+    }
+
+    /**
+     * 嘗試讀取並清理剪貼簿
+     */
+    async function tryReadAndCleanClipboard(source = 'poll') {
+      if (isProcessingClipboard) return;
+
+      try {
+        const clipboardText = await navigator.clipboard.readText();
+        // 只在非輪詢或有變化時才 log（避免 console 刷屏）
+        if (source !== 'poll' || (clipboardText && clipboardText !== lastClipboardCheck)) {
+          console.log(`📋 [${source}] 讀取剪貼簿:`, clipboardText ? clipboardText.substring(0, 50) + '...' : '(空)');
+        }
+        if (clipboardText && clipboardText !== lastClipboardCheck) {
+          await cleanClipboardURL(clipboardText, source);
+        }
+      } catch (error) {
+        // 只在非輪詢時 log 錯誤（避免 console 刷屏）
+        if (source !== 'poll') {
+          console.log(`⚠️ [${source}] 讀取剪貼簿失敗:`, error.message);
+        }
+      }
+    }
+
+    // ========== 方法 1: 監聽 copy 事件 ==========
     document.addEventListener('copy', async (e) => {
       if (isProcessingClipboard) return;
 
@@ -86,12 +159,12 @@ if (window.shortURLCopierInjected) {
 
         if (!selection) return;
 
-        // 檢查選取內容中是否包含 URL（支援「標題 + URL」格式）
+        // 檢查選取內容中是否包含 URL
         const urlMatch = selection.match(/(https?:\/\/[^\s]+)/);
 
         if (urlMatch) {
           const originalURL = urlMatch[1];
-          console.log('📋 偵測到複製內容:', selection);
+          console.log('📋 [copy事件] 偵測到複製內容:', selection);
           console.log('🔗 提取到 URL:', originalURL);
 
           // 清理 URL
@@ -110,6 +183,7 @@ if (window.shortURLCopierInjected) {
                 isProcessingClipboard = true;
                 try {
                   await navigator.clipboard.writeText(cleanedText);
+                  lastClipboardCheck = cleanedText;
                   showNotification('✓ 已自動清理並複製網址！', 'success');
                   console.log('✓ 已將清理後的內容放入剪貼簿:', cleanedText);
                 } catch (error) {
@@ -126,61 +200,94 @@ if (window.shortURLCopierInjected) {
       }
     });
 
-    // 監聽剪貼簿變化（使用 Clipboard API 的替代方案）
-    // 當用戶使用網站自帶的「複製連結」按鈕時觸發
-    let lastClipboardCheck = '';
-    let clipboardCheckInterval = null;
+    // ========== 方法 2: 監聽 Facebook 複製連結按鈕 ==========
+    if (window.location.hostname.includes('facebook.com')) {
+      console.log('🔵 Facebook 頁面：啟用複製按鈕監聽');
 
-    // 啟用主動剪貼簿監聽（在所有網站）
+      // 使用 MutationObserver 監聽 DOM 變化，捕捉動態載入的按鈕
+      const observer = new MutationObserver((mutations) => {
+        // 當 DOM 變化時，檢查是否有點擊複製相關的動作
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      // 監聽所有點擊事件，檢測複製按鈕
+      document.addEventListener('click', async (e) => {
+        const target = e.target;
+        const text = target.textContent || '';
+        const ariaLabel = target.getAttribute('aria-label') || '';
+        const parentText = target.closest('[role="menuitem"], [role="button"]')?.textContent || '';
+
+        // 檢測可能的複製按鈕（多語言支援）
+        const copyKeywords = [
+          '複製連結', '复制链接', 'Copy link', 'Copy Link',
+          '複製網址', '复制网址', 'Copy URL',
+          '複製', '复制', 'Copy'
+        ];
+
+        const isCopyButton = copyKeywords.some(keyword =>
+          text.includes(keyword) || ariaLabel.includes(keyword) || parentText.includes(keyword)
+        );
+
+        if (isCopyButton) {
+          console.log('🔵 [Facebook] 偵測到複製按鈕點擊');
+          pendingClipboardCheck = true;
+
+          // 延遲檢查剪貼簿（等待 Facebook 完成複製操作）
+          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-100ms'), 100);
+          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-300ms'), 300);
+          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-500ms'), 500);
+          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-1000ms'), 1000);
+        }
+      }, true); // 使用 capture 模式確保先捕捉到事件
+    }
+
+    // ========== 方法 3: 監聽頁面焦點變化 ==========
+    // 當頁面獲得焦點時，立即檢查剪貼簿
+    window.addEventListener('focus', async () => {
+      console.log('👁️ 頁面獲得焦點，檢查剪貼簿...');
+      // 延遲一點確保剪貼簿已更新
+      setTimeout(() => tryReadAndCleanClipboard('focus-50ms'), 50);
+      setTimeout(() => tryReadAndCleanClipboard('focus-200ms'), 200);
+    });
+
+    // 當文件可見性改變時檢查
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ 頁面變為可見，檢查剪貼簿...');
+        setTimeout(() => tryReadAndCleanClipboard('visible-50ms'), 50);
+        setTimeout(() => tryReadAndCleanClipboard('visible-200ms'), 200);
+      }
+    });
+
+    // ========== 方法 4: 持續輪詢剪貼簿 ==========
     console.log('🔍 啟用剪貼簿輪詢監聽');
 
-    // 每 500ms 檢查一次剪貼簿
-    clipboardCheckInterval = setInterval(async () => {
+    // 每 300ms 檢查一次剪貼簿（加快頻率）
+    let pollCount = 0;
+    setInterval(async () => {
+      pollCount++;
+      // 每 10 秒 log 一次狀態，確認輪詢正常運作
+      if (pollCount % 33 === 0) {
+        console.log(`🔄 剪貼簿輪詢中... (已執行 ${pollCount} 次, lastCheck: ${lastClipboardCheck.substring(0, 30)}...)`);
+      }
+
+      // 直接在這裡檢查，不透過 tryReadAndCleanClipboard 以便更詳細 debug
       if (isProcessingClipboard) return;
 
       try {
         const clipboardText = await navigator.clipboard.readText();
-
-        // 如果剪貼簿內容改變
-        if (clipboardText !== lastClipboardCheck) {
-          // 提取 URL（支援「標題 + URL」格式，如 B站）
-          const urlMatch = clipboardText.match(/(https?:\/\/[^\s]+)/);
-
-          if (urlMatch) {
-            const originalURL = urlMatch[1];
-            lastClipboardCheck = clipboardText;
-            console.log('📋 偵測到剪貼簿變化:', clipboardText);
-            console.log('🔗 提取到 URL:', originalURL);
-
-            // 清理 URL
-            chrome.runtime.sendMessage(
-              { action: 'cleanURL', url: originalURL },
-              async (response) => {
-                if (response && response.cleanedURL && response.cleanedURL !== originalURL) {
-                  console.log('🧹 自動清理剪貼簿 URL:', response.cleanedURL);
-
-                  isProcessingClipboard = true;
-                  try {
-                    // 替換原文中的 URL 為清理後的版本
-                    const cleanedText = clipboardText.replace(originalURL, response.cleanedURL);
-                    await navigator.clipboard.writeText(cleanedText);
-                    lastClipboardCheck = cleanedText;
-                    showNotification('✓ 已自動清理剪貼簿網址！', 'success');
-                  } catch (error) {
-                    console.error('更新剪貼簿失敗:', error);
-                  } finally {
-                    isProcessingClipboard = false;
-                  }
-                }
-              }
-            );
-          }
+        if (clipboardText && clipboardText !== lastClipboardCheck) {
+          console.log('📋 [poll] 偵測到新內容:', clipboardText.substring(0, 80));
+          await cleanClipboardURL(clipboardText, 'poll');
         }
       } catch (error) {
-        // 讀取剪貼簿失敗（可能沒有權限），忽略錯誤
-        // 這是正常的，因為頁面沒有焦點時無法讀取剪貼簿
+        // 沒有焦點時會失敗，這是正常的
       }
-    }, 500);
+    }, 300);
 
     console.log('✓ Short URL Copier: 剪貼簿監聽已完全載入');
   }
