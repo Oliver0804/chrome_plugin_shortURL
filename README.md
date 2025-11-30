@@ -2,7 +2,7 @@
 
 一個強大的 Chrome 擴充功能，自動清理網址中的追蹤參數，讓分享連結更簡潔！
 
-[![Version](https://img.shields.io/badge/version-1.3.7-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
+[![Version](https://img.shields.io/badge/version-1.3.14-blue.svg)](https://github.com/Oliver0804/chrome_plugin_shortURL)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## ✨ 主要功能
@@ -39,7 +39,7 @@
 - **Instagram**：移除所有查詢參數
 - **Facebook**：只保留 fbid
 - **Twitter / X**：移除追蹤參數
-- **TikTok**：移除裝置和來源資訊
+- **TikTok**：移除裝置和來源資訊，支援短連結解析 (vt.tiktok.com, vm.tiktok.com)
 - **Threads** (.com/.net)：移除所有追蹤參數
 - **LinkedIn**：保留追蹤 ID
 - **Pinterest**：移除追蹤參數
@@ -131,6 +131,11 @@ shortURL/
 ```
 
 ## 📝 更新日誌
+
+### v1.3.14 (2025-11-30)
+- 🎵 新增 TikTok 短連結解析功能 (vt.tiktok.com, vm.tiktok.com)
+- 🔗 自動追蹤 301 重定向，取得完整 TikTok 視頻 URL
+- 🧹 擴充 TikTok 追蹤參數清理列表
 
 ### v1.3.7 (2025-01-12)
 - 💬 新增 Threads (threads.com / threads.net) URL 支援

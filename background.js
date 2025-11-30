@@ -395,6 +395,113 @@ function transformFacebookURL(url) {
 }
 
 /**
+ * 檢查是否為 TikTok 短連結
+ * 支援 vt.tiktok.com 和 vm.tiktok.com 等短連結域名
+ * @param {URL} url - URL 物件
+ * @returns {boolean} - 是否為 TikTok 短連結
+ */
+function isTikTokShortLink(url) {
+  const hostname = url.hostname;
+  // vt.tiktok.com - 分享短連結
+  // vm.tiktok.com - 視頻短連結
+  return hostname === 'vt.tiktok.com' || hostname === 'vm.tiktok.com';
+}
+
+/**
+ * 清理 TikTok URL，移除追蹤參數
+ * @param {string} urlString - URL 字串
+ * @returns {string} - 清理後的 URL
+ */
+function cleanTikTokUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+
+    // 標準化 hostname 為 www.tiktok.com
+    if (url.hostname === 'tiktok.com') {
+      url.hostname = 'www.tiktok.com';
+    }
+
+    // 要移除的追蹤參數
+    const paramsToRemove = [
+      '_r', '_t', '_d',                    // 內部追蹤參數
+      'is_from_webapp', 'sender_device',   // 來源追蹤
+      'web_id', 'refer',                   // 裝置和來源
+      'is_copy_url', 'is_share_url',       // 分享追蹤
+      'share_item_id', 'share_app_id',     // 分享來源
+      'checksum', 'sec_uid', 'sec_user_id' // 安全相關追蹤
+    ];
+
+    paramsToRemove.forEach(param => url.searchParams.delete(param));
+
+    return url.toString();
+  } catch (error) {
+    return urlString;
+  }
+}
+
+/**
+ * 解析 TikTok 短連結，取得真實 URL
+ * 透過 fetch 追蹤重定向來取得最終 URL
+ * @param {string} shareUrl - 短連結
+ * @returns {Promise<string>} - 解析後的真實 URL
+ */
+async function resolveTikTokShortLink(shareUrl) {
+  try {
+    console.log('[TikTok Short] 開始解析:', shareUrl);
+
+    // 使用 redirect: 'follow' 自動跟隨重定向
+    const response = await fetch(shareUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    const finalUrl = response.url;
+    console.log('[TikTok Short] 重定向後 URL:', finalUrl);
+
+    // 檢查是否已經到達 www.tiktok.com
+    const finalUrlObj = new URL(finalUrl);
+    if (finalUrlObj.hostname === 'www.tiktok.com' || finalUrlObj.hostname === 'tiktok.com') {
+      const cleanedUrl = cleanTikTokUrl(finalUrl);
+      console.log('[TikTok Short] 解析成功:', cleanedUrl);
+      return cleanedUrl;
+    }
+
+    // 如果還是短連結域名，嘗試從 HTML 提取
+    console.log('[TikTok Short] 重定向未成功，嘗試從 HTML 提取...');
+    const html = await response.text();
+
+    // 嘗試從 meta tag 提取
+    const ogUrlMatch = html.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i);
+    if (ogUrlMatch && ogUrlMatch[1]) {
+      const cleanedUrl = cleanTikTokUrl(ogUrlMatch[1]);
+      console.log('[TikTok Short] 從 og:url 提取成功:', cleanedUrl);
+      return cleanedUrl;
+    }
+
+    // 嘗試從 canonical 提取
+    const canonicalMatch = html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i);
+    if (canonicalMatch && canonicalMatch[1]) {
+      const cleanedUrl = cleanTikTokUrl(canonicalMatch[1]);
+      console.log('[TikTok Short] 從 canonical 提取成功:', cleanedUrl);
+      return cleanedUrl;
+    }
+
+    // 如果都失敗，返回清理後的最終 URL
+    console.log('[TikTok Short] 解析失敗，返回重定向後的 URL');
+    return cleanTikTokUrl(finalUrl);
+
+  } catch (error) {
+    console.error('[TikTok Short] 解析失敗:', error);
+    // 如果解析失敗，返回原始連結
+    return shareUrl;
+  }
+}
+
+/**
  * 轉換蝦皮 URL 為短網址格式
  * @param {URL} url - URL 物件
  * @returns {boolean} - 是否成功轉換
@@ -495,7 +602,7 @@ function cleanURLSync(urlString) {
 }
 
 /**
- * 清理 URL，移除不必要的參數（非同步版本，支援 Facebook 短連結解析）
+ * 清理 URL，移除不必要的參數（非同步版本，支援 Facebook/TikTok 短連結解析）
  * @param {string} urlString - 原始 URL
  * @returns {Promise<string>} - 清理後的 URL
  */
@@ -507,6 +614,14 @@ async function cleanURL(urlString) {
     if (isFacebookShareLink(url)) {
       console.log('偵測到 Facebook 分享短連結，正在解析...');
       const resolvedUrl = await resolveFacebookShareLink(urlString);
+      console.log('解析完成:', resolvedUrl);
+      return resolvedUrl;
+    }
+
+    // 檢查是否為 TikTok 短連結，如果是則先解析
+    if (isTikTokShortLink(url)) {
+      console.log('偵測到 TikTok 短連結，正在解析...');
+      const resolvedUrl = await resolveTikTokShortLink(urlString);
       console.log('解析完成:', resolvedUrl);
       return resolvedUrl;
     }

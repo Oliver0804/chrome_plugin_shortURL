@@ -140,8 +140,18 @@
 
 #### TikTok (tiktok.com, www.tiktok.com)
 - **模式**: 移除模式
-- **移除參數**: `is_from_webapp`, `sender_device`, `web_id`
+- **移除參數**: `is_from_webapp`, `sender_device`, `web_id`, `_r`, `_t`, `_d`, `refer`, `is_copy_url`, `is_share_url`, `share_item_id`, `share_app_id`, `checksum`, `sec_uid`, `sec_user_id`
 - **說明**: 移除設備和來源追蹤參數
+
+#### TikTok 短連結 (vt.tiktok.com, vm.tiktok.com)
+- **模式**: 重定向解析
+- **處理方式**: 自動追蹤 301 重定向，取得完整 TikTok 視頻 URL
+- **說明**: 解析分享短連結，轉換為清理後的完整 URL
+- **範例**:
+  ```
+  短連結: https://vt.tiktok.com/ZSf4vFn9M/
+  解析後: https://www.tiktok.com/@user/video/7560243732566527243
+  ```
 
 ---
 
