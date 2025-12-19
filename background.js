@@ -129,6 +129,11 @@ const URL_RULES = {
     keepParams: []
   },
 
+  // Sora (ChatGPT AI 影片生成)：移除分享追蹤參數，ID 已在路徑中
+  'sora.chatgpt.com': {
+    keepParams: []
+  },
+
   // 抖音：保留 modal_id 參數（用於直接打開視頻）
   'www.douyin.com': {
     keepParams: ['modal_id']
