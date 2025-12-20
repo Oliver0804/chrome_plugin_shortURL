@@ -18,7 +18,8 @@ if (window.shortURLCopierInjected) {
     const result = await chrome.storage.local.get('settings');
     return result.settings || {
       showBubble: true,
-      showNotifications: true
+      showNotifications: true,
+      unlockRightClick: true
     };
   }
 
@@ -540,16 +541,213 @@ if (window.shortURLCopierInjected) {
     console.log('✓ Short URL Copier: 浮動氣泡已完全載入');
   }
 
-  // 開始初始化 - 兩個功能獨立啟動
+  /**
+   * 初始化解鎖右鍵與選取功能
+   */
+  async function initUnlockFeature() {
+    console.log('🔓 Short URL Copier: 開始初始化解鎖功能');
+
+    if (!document.body) {
+      console.log('⏳ Short URL Copier: body 尚未載入，等待中...');
+      setTimeout(initUnlockFeature, 100);
+      return;
+    }
+
+    // 解鎖狀態管理
+    let isUnlocked = false;
+    let unlockStyleElement = null;
+    const eventHandlers = {};
+    let mutationObserver = null;
+
+    // 解鎖用的 CSS 規則
+    const UNLOCK_CSS = `
+      * {
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
+        -webkit-touch-callout: default !important;
+      }
+      *::selection {
+        background: #b3d4fc !important;
+      }
+      *::-moz-selection {
+        background: #b3d4fc !important;
+      }
+    `;
+
+    /**
+     * 通用事件攔截器 - 在 capture 階段阻止事件傳播
+     */
+    function createEventBlocker(eventName) {
+      return function(e) {
+        e.stopPropagation();
+        // 不呼叫 preventDefault()，讓瀏覽器預設行為執行
+        console.log(`🔓 已攔截 ${eventName} 事件`);
+      };
+    }
+
+    /**
+     * 移除元素上的 inline 事件處理器
+     */
+    function removeInlineHandlers(element) {
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) return;
+
+      const handlersToRemove = [
+        'oncontextmenu', 'onselectstart', 'ondragstart',
+        'onmousedown', 'oncopy', 'oncut'
+      ];
+
+      handlersToRemove.forEach(handler => {
+        if (element[handler]) {
+          element[handler] = null;
+        }
+        if (element.hasAttribute && element.hasAttribute(handler)) {
+          element.removeAttribute(handler);
+        }
+      });
+    }
+
+    /**
+     * 掃描並移除所有元素的 inline 事件處理器
+     */
+    function scanAndRemoveInlineHandlers() {
+      // 處理 document 和 body
+      removeInlineHandlers(document.documentElement);
+      removeInlineHandlers(document.body);
+
+      // 處理所有有 inline handler 的元素
+      const selectors = [
+        '[oncontextmenu]', '[onselectstart]', '[ondragstart]',
+        '[onmousedown]', '[oncopy]', '[oncut]'
+      ];
+      const elements = document.querySelectorAll(selectors.join(', '));
+      elements.forEach(removeInlineHandlers);
+
+      if (elements.length > 0) {
+        console.log(`🔓 已移除 ${elements.length} 個元素的 inline 事件處理器`);
+      }
+    }
+
+    /**
+     * 啟用解鎖功能
+     */
+    function enableUnlock() {
+      if (isUnlocked) return;
+      console.log('🔓 啟用解鎖功能');
+
+      // 1. 注入 CSS
+      unlockStyleElement = document.createElement('style');
+      unlockStyleElement.id = 'short-url-copier-unlock-style';
+      unlockStyleElement.textContent = UNLOCK_CSS;
+      document.head.appendChild(unlockStyleElement);
+
+      // 2. 添加事件攔截器（capture 階段）
+      // 注意：不攔截 copy/cut，保持剪貼簿監聽功能正常
+      const eventsToBlock = ['contextmenu', 'selectstart', 'dragstart'];
+
+      eventsToBlock.forEach(eventName => {
+        eventHandlers[eventName] = createEventBlocker(eventName);
+        document.addEventListener(eventName, eventHandlers[eventName], true);
+      });
+
+      // 3. 移除 inline 事件處理器
+      scanAndRemoveInlineHandlers();
+
+      // 4. 使用 MutationObserver 監視動態添加的元素
+      mutationObserver = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              removeInlineHandlers(node);
+              // 也處理子元素
+              if (node.querySelectorAll) {
+                const children = node.querySelectorAll('[oncontextmenu], [onselectstart], [ondragstart]');
+                children.forEach(removeInlineHandlers);
+              }
+            }
+          });
+        });
+      });
+
+      mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+
+      isUnlocked = true;
+      showNotification('🔓 已解鎖右鍵與選取限制', 'success');
+    }
+
+    /**
+     * 停用解鎖功能
+     */
+    function disableUnlock() {
+      if (!isUnlocked) return;
+      console.log('🔒 停用解鎖功能');
+
+      // 1. 移除 CSS
+      if (unlockStyleElement && unlockStyleElement.parentNode) {
+        unlockStyleElement.parentNode.removeChild(unlockStyleElement);
+        unlockStyleElement = null;
+      }
+
+      // 2. 移除事件攔截器
+      const eventsToBlock = ['contextmenu', 'selectstart', 'dragstart'];
+      eventsToBlock.forEach(eventName => {
+        if (eventHandlers[eventName]) {
+          document.removeEventListener(eventName, eventHandlers[eventName], true);
+          delete eventHandlers[eventName];
+        }
+      });
+
+      // 3. 停止 MutationObserver
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+        mutationObserver = null;
+      }
+
+      isUnlocked = false;
+      showNotification('🔒 已還原右鍵與選取限制', 'info');
+    }
+
+    // 載入設定並初始化
+    const settings = await loadSettings();
+    if (settings.unlockRightClick) {
+      enableUnlock();
+    }
+
+    // 監聽設定變化，實現即時切換
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'local' && changes.settings) {
+        const newSettings = changes.settings.newValue || {};
+        const oldSettings = changes.settings.oldValue || {};
+
+        if (newSettings.unlockRightClick !== oldSettings.unlockRightClick) {
+          if (newSettings.unlockRightClick) {
+            enableUnlock();
+          } else {
+            disableUnlock();
+          }
+        }
+      }
+    });
+
+    console.log('✓ Short URL Copier: 解鎖功能已初始化');
+  }
+
+  // 開始初始化 - 三個功能獨立啟動
   if (document.readyState === 'loading') {
     console.log('⏳ Short URL Copier: 等待 DOMContentLoaded');
     document.addEventListener('DOMContentLoaded', () => {
-      initBubble();           // 氣泡功能
+      initBubble();              // 氣泡功能
       initClipboardMonitoring(); // 剪貼簿監聽功能
+      initUnlockFeature();       // 解鎖右鍵與選取功能
     });
   } else {
     console.log('✓ Short URL Copier: DOM 已就緒，立即初始化');
-    initBubble();           // 氣泡功能
+    initBubble();              // 氣泡功能
     initClipboardMonitoring(); // 剪貼簿監聽功能
+    initUnlockFeature();       // 解鎖右鍵與選取功能
   }
 }

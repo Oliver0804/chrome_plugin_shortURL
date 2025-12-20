@@ -5,12 +5,14 @@
 // 預設設定
 const DEFAULT_SETTINGS = {
   showBubble: true,
-  showNotifications: true
+  showNotifications: true,
+  unlockRightClick: true
 };
 
 // DOM 元素
 const showBubbleCheckbox = document.getElementById('showBubble');
 const showNotificationsCheckbox = document.getElementById('showNotifications');
+const unlockRightClickCheckbox = document.getElementById('unlockRightClick');
 const saveButton = document.getElementById('saveButton');
 const resetButton = document.getElementById('resetButton');
 const statusDiv = document.getElementById('status');
@@ -25,6 +27,7 @@ async function loadSettings() {
 
     showBubbleCheckbox.checked = settings.showBubble !== false;
     showNotificationsCheckbox.checked = settings.showNotifications !== false;
+    unlockRightClickCheckbox.checked = settings.unlockRightClick === true;
 
     console.log('✓ 設定已載入:', settings);
   } catch (error) {
@@ -56,13 +59,14 @@ async function saveSettings() {
   try {
     const settings = {
       showBubble: showBubbleCheckbox.checked,
-      showNotifications: showNotificationsCheckbox.checked
+      showNotifications: showNotificationsCheckbox.checked,
+      unlockRightClick: unlockRightClickCheckbox.checked
     };
 
     await chrome.storage.local.set({ settings });
 
     console.log('✓ 設定已儲存:', settings);
-    showStatus('設定已儲存！請重新整理頁面以套用新設定', 'success');
+    showStatus('設定已儲存！解鎖功能即時生效，其他設定請重新整理頁面套用', 'success');
   } catch (error) {
     console.error('儲存設定失敗:', error);
     showStatus('儲存失敗，請重試', 'error');
@@ -78,6 +82,7 @@ async function resetSettings() {
 
     showBubbleCheckbox.checked = DEFAULT_SETTINGS.showBubble;
     showNotificationsCheckbox.checked = DEFAULT_SETTINGS.showNotifications;
+    unlockRightClickCheckbox.checked = DEFAULT_SETTINGS.unlockRightClick;
 
     console.log('✓ 設定已重置為預設值');
     showStatus('已重置為預設值！請重新整理頁面以套用新設定', 'success');
