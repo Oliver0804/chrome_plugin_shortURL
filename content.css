@@ -35,17 +35,17 @@
   }
 }
 
-/* 拖曳狀態 */
-#short-url-copier-bubble.dragging {
-  cursor: grabbing !important;
-  animation: none !important;
-  transform: scale(1.1) !important;
-  box-shadow: none !important;
-}
-
 /* 懸停狀態 */
 #short-url-copier-bubble.hover {
   transform: scale(1.15) !important;
+  box-shadow: none !important;
+}
+
+/* 拖曳/按下狀態（放在 .hover 之後，確保按下時優先） */
+#short-url-copier-bubble.dragging {
+  cursor: grabbing !important;
+  animation: none !important;
+  transform: scale(0.88) translateY(2px) !important;
   box-shadow: none !important;
 }
 
@@ -55,17 +55,20 @@
   transform: translateX(-50%) translateY(-10px) !important;
 }
 
-/* 複製成功動畫 */
+/* 複製成功動畫 - 按下縮小 + 偏移製造深度感 */
 #short-url-copier-bubble.copied {
-  animation: short-url-copied-pulse 0.3s ease !important;
+  animation: short-url-copied-press 0.3s ease !important;
 }
 
-@keyframes short-url-copied-pulse {
-  0%, 100% {
-    transform: scale(1);
+@keyframes short-url-copied-press {
+  0% {
+    transform: scale(1) translateY(0);
   }
-  50% {
-    transform: scale(1.2);
+  40% {
+    transform: scale(0.85) translateY(3px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -105,50 +108,78 @@
   border-top: 6px solid rgba(0, 0, 0, 0.85) !important;
 }
 
-/* 通知訊息 */
+/* 通知訊息 - 浮在氣泡上方，顯示邏輯由 JS inline style 控制 */
 #short-url-copier-notification {
   position: fixed !important;
-  top: 20px !important;
-  left: 50% !important;
-  transform: translateX(-50%) translateY(-100px) !important;
-  background: white !important;
-  color: #333 !important;
-  padding: 12px 24px !important;
-  border-radius: 8px !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   z-index: 2147483647 !important;
+  color: white !important;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2) !important;
   opacity: 0 !important;
   visibility: hidden !important;
-  transition: all 0.3s ease !important;
+  transition: opacity 0.25s ease !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
-  max-width: 400px !important;
+  max-width: 260px !important;
   text-align: center !important;
   pointer-events: none !important;
+  white-space: nowrap !important;
 }
 
-#short-url-copier-notification.show {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: translateX(-50%) translateY(0) !important;
+/* 右鍵選單 */
+#short-url-copier-context-menu {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  background: #fff !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18) !important;
+  padding: 4px 0 !important;
+  min-width: 200px !important;
+  display: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
 }
 
-#short-url-copier-notification.success {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
+#short-url-copier-context-menu.show {
+  display: block !important;
 }
 
-#short-url-copier-notification.error {
-  background: #fed7d7 !important;
-  color: #742a2a !important;
-  border: 2px solid #fc8181 !important;
+#short-url-copier-context-menu .context-menu-item {
+  padding: 10px 16px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 13px !important;
+  color: #333 !important;
+  transition: background 0.15s ease !important;
+  white-space: nowrap !important;
+  user-select: none !important;
 }
 
-#short-url-copier-notification.info {
-  background: #e6fffa !important;
-  color: #234e52 !important;
-  border: 2px solid #81e6d9 !important;
+#short-url-copier-context-menu .context-menu-item:hover {
+  background: #f0f0f0 !important;
+}
+
+#short-url-copier-context-menu .context-menu-item .context-menu-icon {
+  font-size: 15px !important;
+  width: 20px !important;
+  text-align: center !important;
+  flex-shrink: 0 !important;
+}
+
+#short-url-copier-context-menu .context-menu-item .context-menu-status {
+  margin-left: auto !important;
+  font-size: 11px !important;
+  color: #999 !important;
+  padding-left: 12px !important;
+}
+
+#short-url-copier-context-menu .context-menu-separator {
+  height: 1px !important;
+  background: #e5e5e5 !important;
+  margin: 4px 8px !important;
 }
 
 /* 響應式設計 */

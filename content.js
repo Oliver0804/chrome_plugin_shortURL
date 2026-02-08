@@ -13,14 +13,16 @@ if (window.shortURLCopierInjected) {
   window.shortURLCopierInjected = true;
   console.log('✓ Short URL Copier: 設定注入標記');
 
-  // 讀取設定
+  // 讀取設定（與預設值合併，確保新增屬性不會遺失）
+  const DEFAULT_SETTINGS = {
+    showBubble: true,
+    showNotifications: true,
+    unlockRightClick: true
+  };
+
   async function loadSettings() {
     const result = await chrome.storage.local.get('settings');
-    return result.settings || {
-      showBubble: true,
-      showNotifications: true,
-      unlockRightClick: true
-    };
+    return { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
   }
 
   // 建立通知容器（全域，兩個功能都會用到）
@@ -41,22 +43,63 @@ if (window.shortURLCopierInjected) {
   }
 
   /**
-   * 顯示通知訊息（全域函數）
+   * 顯示通知訊息（浮在氣泡上方）
    */
+  let notificationTimer = null;
+
+  const NOTIFICATION_COLORS = {
+    success: { bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', arrow: '#764ba2' },
+    error:   { bg: '#e53e3e', arrow: '#e53e3e' },
+    info:    { bg: '#319795', arrow: '#319795' }
+  };
+
   async function showNotification(message, type = 'success') {
-    const settings = await loadSettings();
-    if (!settings.showNotifications) {
-      console.log('🔕 通知已關閉:', message);
-      return;
+    try {
+      const settings = await loadSettings();
+      if (!settings.showNotifications) return;
+    } catch (error) {
+      // 載入設定失敗時仍顯示通知，不靜默吞掉
+      console.warn('載入設定失敗，仍顯示通知:', error);
     }
 
     const notification = getNotificationElement();
-    notification.textContent = message;
-    notification.className = `show ${type}`;
-    console.log('📢 通知:', message, type);
 
-    setTimeout(() => {
-      notification.classList.remove('show');
+    // 確保通知元素在 DOM 中
+    if (!notification.parentNode) {
+      document.body.appendChild(notification);
+    }
+
+    // 清除前一個計時器
+    if (notificationTimer) {
+      clearTimeout(notificationTimer);
+      notificationTimer = null;
+    }
+
+    const colors = NOTIFICATION_COLORS[type] || NOTIFICATION_COLORS.success;
+
+    // 定位在氣泡上方
+    const bubble = document.getElementById('short-url-copier-bubble');
+    if (bubble) {
+      const rect = bubble.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      notification.style.setProperty('left', centerX + 'px', 'important');
+      notification.style.setProperty('top', (rect.top - 10) + 'px', 'important');
+      notification.style.setProperty('transform', 'translateX(-50%) translateY(-100%)', 'important');
+    }
+
+    // 設定內容與樣式（全部用 inline important 確保可見）
+    notification.textContent = message;
+    notification.style.setProperty('background', colors.bg, 'important');
+    notification.style.setProperty('opacity', '1', 'important');
+    notification.style.setProperty('visibility', 'visible', 'important');
+
+    // 2.5 秒後淡出
+    notificationTimer = setTimeout(() => {
+      notification.style.setProperty('opacity', '0', 'important');
+      setTimeout(() => {
+        notification.style.setProperty('visibility', 'hidden', 'important');
+      }, 250);
+      notificationTimer = null;
     }, 2500);
   }
 
@@ -342,6 +385,11 @@ if (window.shortURLCopierInjected) {
       return;
     }
 
+    // 建立右鍵選單
+    const contextMenu = document.createElement('div');
+    contextMenu.id = 'short-url-copier-context-menu';
+    document.body.appendChild(contextMenu);
+
     // 氣泡狀態
     let isDragging = false;
     let hasMoved = false;
@@ -350,8 +398,53 @@ if (window.shortURLCopierInjected) {
     let currentX = window.innerWidth - bubbleSize - 20;
     let currentY = window.innerHeight / 2;
 
+    // 象限位置記憶（用於 resize 時重新計算）
+    let savedQuadrant = null;
+    let savedDistanceX = null;
+    let savedDistanceY = null;
+
     // 取得當前域名（用於記憶位置）
     const currentDomain = window.location.hostname;
+
+    /**
+     * 根據象限與邊緣距離計算絕對座標
+     */
+    function computePositionFromQuadrant(quadrant, distanceX, distanceY) {
+      const isRight = quadrant.includes('right');
+      const isBottom = quadrant.includes('bottom');
+
+      const x = isRight
+        ? window.innerWidth - distanceX - bubbleSize
+        : distanceX;
+      const y = isBottom
+        ? window.innerHeight - distanceY - bubbleSize
+        : distanceY;
+
+      return { x, y };
+    }
+
+    /**
+     * 判斷目前氣泡所在象限並計算邊緣距離
+     */
+    function computeQuadrantData() {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const bubbleCenterX = currentX + bubbleSize / 2;
+      const bubbleCenterY = currentY + bubbleSize / 2;
+
+      const isRight = bubbleCenterX >= centerX;
+      const isBottom = bubbleCenterY >= centerY;
+      const quadrant = `${isBottom ? 'bottom' : 'top'}-${isRight ? 'right' : 'left'}`;
+
+      const distanceX = isRight
+        ? window.innerWidth - currentX - bubbleSize
+        : currentX;
+      const distanceY = isBottom
+        ? window.innerHeight - currentY - bubbleSize
+        : currentY;
+
+      return { quadrant, distanceX, distanceY };
+    }
 
     // 從儲存中載入位置
     async function loadPosition() {
@@ -360,8 +453,25 @@ if (window.shortURLCopierInjected) {
         const positions = result.bubblePositions || {};
 
         if (positions[currentDomain]) {
-          currentX = positions[currentDomain].x;
-          currentY = positions[currentDomain].y;
+          const pos = positions[currentDomain];
+
+          if (pos.quadrant) {
+            // 新格式：象限 + 邊緣距離
+            savedQuadrant = pos.quadrant;
+            savedDistanceX = pos.distanceX;
+            savedDistanceY = pos.distanceY;
+            const computed = computePositionFromQuadrant(pos.quadrant, pos.distanceX, pos.distanceY);
+            currentX = computed.x;
+            currentY = computed.y;
+          } else {
+            // 相容舊格式（絕對座標），計算象限資料供 resize 使用
+            currentX = pos.x;
+            currentY = pos.y;
+            const migrated = computeQuadrantData();
+            savedQuadrant = migrated.quadrant;
+            savedDistanceX = migrated.distanceX;
+            savedDistanceY = migrated.distanceY;
+          }
           console.log('✓ 已載入記憶位置:', positions[currentDomain]);
         } else {
           console.log('📍 使用預設位置');
@@ -379,15 +489,23 @@ if (window.shortURLCopierInjected) {
       }
     }
 
-    // 儲存位置
+    // 儲存位置（象限制）
     async function savePosition() {
       try {
         const result = await chrome.storage.local.get('bubblePositions');
         const positions = result.bubblePositions || {};
 
+        const { quadrant, distanceX, distanceY } = computeQuadrantData();
+
+        // 更新本地記憶
+        savedQuadrant = quadrant;
+        savedDistanceX = distanceX;
+        savedDistanceY = distanceY;
+
         positions[currentDomain] = {
-          x: currentX,
-          y: currentY,
+          quadrant,
+          distanceX,
+          distanceY,
           timestamp: Date.now()
         };
 
@@ -402,36 +520,79 @@ if (window.shortURLCopierInjected) {
     loadPosition();
 
     /**
-     * 複製文字到剪貼簿
+     * 複製文字到剪貼簿（含 fallback）
      */
     async function copyToClipboard(text) {
+      let success = false;
+
+      // 方法 1：execCommand（配合 clipboardWrite 權限，不受 user gesture 限制）
       try {
-        await navigator.clipboard.writeText(text);
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch (err) {
+        console.warn('execCommand 失敗，嘗試 Clipboard API:', err);
+      }
+
+      // 方法 2：Clipboard API fallback
+      if (!success) {
+        try {
+          await navigator.clipboard.writeText(text);
+          success = true;
+        } catch (err) {
+          console.error('Clipboard API 也失敗:', err);
+        }
+      }
+
+      if (success) {
         showNotification('✓ 已複製簡短網址！', 'success');
-
-        // 視覺反饋
         bubble.classList.add('copied');
-        setTimeout(() => {
-          bubble.classList.remove('copied');
-        }, 300);
-
+        setTimeout(() => bubble.classList.remove('copied'), 300);
         console.log('✓ 複製成功:', text);
-      } catch (error) {
-        console.error('✗ 複製失敗:', error);
+      } else {
         showNotification('✗ 複製失敗，請重試', 'error');
       }
     }
+
+    // 預取的 cleanURL Promise（mousedown 時發送，mouseup 時 await）
+    let prefetchedCleanURL = null;
 
     /**
      * 處理點擊事件
      */
     bubble.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return; // 只處理左鍵
       isDragging = true;
       hasMoved = false;
       startX = e.clientX - currentX;
       startY = e.clientY - currentY;
+      bubble.classList.remove('hover');
       bubble.classList.add('dragging');
-      console.log('🖱️ 開始拖曳');
+
+      // 預發送 cleanURL 請求，縮短 mouseup 時的等待時間
+      const currentURL = window.location.href;
+      prefetchedCleanURL = new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(
+            { action: 'cleanURL', url: currentURL },
+            (response) => {
+              if (chrome.runtime.lastError) {
+                console.error('通訊錯誤:', chrome.runtime.lastError);
+                resolve(null);
+                return;
+              }
+              resolve(response?.cleanedURL || null);
+            }
+          );
+        } catch (error) {
+          console.error('發送訊息失敗:', error);
+          resolve(null);
+        }
+      });
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -462,26 +623,16 @@ if (window.shortURLCopierInjected) {
         // 如果沒有移動，則視為點擊
         if (!hasMoved) {
           console.log('🖱️ 點擊氣泡');
-          const currentURL = window.location.href;
 
-          // 向背景腳本請求清理 URL
-          try {
-            chrome.runtime.sendMessage(
-              { action: 'cleanURL', url: currentURL },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error('通訊錯誤:', chrome.runtime.lastError);
-                  showNotification('✗ 通訊失敗', 'error');
-                  return;
-                }
-                if (response && response.cleanedURL) {
-                  console.log('收到清理後的 URL:', response.cleanedURL);
-                  copyToClipboard(response.cleanedURL);
-                }
-              }
-            );
-          } catch (error) {
-            console.error('發送訊息失敗:', error);
+          // 直接 await mousedown 時預取的結果，保持在 user activation window 內
+          const cleanedURL = await prefetchedCleanURL;
+          prefetchedCleanURL = null;
+
+          if (cleanedURL) {
+            console.log('收到清理後的 URL:', cleanedURL);
+            copyToClipboard(cleanedURL);
+          } else {
+            showNotification('✗ 取得清理網址失敗', 'error');
           }
         } else {
           console.log('🖱️ 拖曳結束，儲存位置');
@@ -512,12 +663,114 @@ if (window.shortURLCopierInjected) {
       bubble.classList.remove('hover');
     });
 
-    // 視窗大小改變時調整位置
+    // 視窗大小改變時根據象限重新計算位置
     window.addEventListener('resize', () => {
+      if (savedQuadrant) {
+        const computed = computePositionFromQuadrant(savedQuadrant, savedDistanceX, savedDistanceY);
+        currentX = computed.x;
+        currentY = computed.y;
+      }
+
       currentX = Math.max(0, Math.min(window.innerWidth - bubbleSize, currentX));
       currentY = Math.max(0, Math.min(window.innerHeight - bubbleSize, currentY));
       bubble.style.left = currentX + 'px';
       bubble.style.top = currentY + 'px';
+    });
+
+    // ===== 右鍵選單功能 =====
+
+    /**
+     * 關閉右鍵選單
+     */
+    function closeContextMenu() {
+      contextMenu.classList.remove('show');
+    }
+
+    /**
+     * 顯示右鍵選單
+     */
+    async function showContextMenu(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 讀取目前設定
+      const currentSettings = await loadSettings();
+      const isUnlockOn = currentSettings.unlockRightClick;
+
+      contextMenu.innerHTML = `
+        <div class="context-menu-item" data-action="hide">
+          <span class="context-menu-icon">👁</span>
+          <span>隱藏浮動氣泡</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="toggle-unlock">
+          <span class="context-menu-icon">${isUnlockOn ? '🔓' : '🔒'}</span>
+          <span>解鎖右鍵與選取</span>
+          <span class="context-menu-status">${isUnlockOn ? '已開啟' : '已關閉'}</span>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="open-settings">
+          <span class="context-menu-icon">⚙</span>
+          <span>擴充功能設定</span>
+        </div>
+      `;
+
+      // 計算選單位置（避免超出視窗）
+      contextMenu.classList.add('show');
+      const menuRect = contextMenu.getBoundingClientRect();
+      let menuX = e.clientX;
+      let menuY = e.clientY;
+
+      if (menuX + menuRect.width > window.innerWidth) {
+        menuX = window.innerWidth - menuRect.width - 8;
+      }
+      if (menuY + menuRect.height > window.innerHeight) {
+        menuY = window.innerHeight - menuRect.height - 8;
+      }
+
+      contextMenu.style.left = menuX + 'px';
+      contextMenu.style.top = menuY + 'px';
+    }
+
+    // 事件委派：只綁定一次，避免記憶體洩漏
+    contextMenu.addEventListener('click', async (e) => {
+      const item = e.target.closest('.context-menu-item');
+      if (!item) return;
+
+      const action = item.dataset.action;
+
+      try {
+        if (action === 'hide') {
+          bubble.style.display = 'none';
+          closeContextMenu();
+          showNotification('氣泡已暫時隱藏，重新整理頁面即可恢復', 'info');
+        } else if (action === 'toggle-unlock') {
+          const s = await loadSettings();
+          const updated = { ...s, unlockRightClick: !s.unlockRightClick };
+          await chrome.storage.local.set({ settings: updated });
+          closeContextMenu();
+          showNotification(
+            updated.unlockRightClick ? '🔓 解鎖功能已開啟' : '🔒 解鎖功能已關閉',
+            'success'
+          );
+        } else if (action === 'open-settings') {
+          chrome.runtime.sendMessage({ action: 'openOptionsPage' });
+          closeContextMenu();
+        }
+      } catch (error) {
+        console.error('選單操作失敗:', error);
+        showNotification('操作失敗，請重試', 'error');
+      }
+    });
+
+    // 氣泡右鍵事件
+    bubble.addEventListener('contextmenu', showContextMenu);
+
+    // 點擊其他地方關閉選單
+    document.addEventListener('mousedown', (e) => {
+      if (!contextMenu.contains(e.target)) {
+        closeContextMenu();
+      }
     });
 
     // 鍵盤快捷鍵：Alt + C 複製簡短網址
@@ -578,9 +831,15 @@ if (window.shortURLCopierInjected) {
 
     /**
      * 通用事件攔截器 - 在 capture 階段阻止事件傳播
+     * 排除氣泡和右鍵選單元素，以免干擾自訂選單
      */
     function createEventBlocker(eventName) {
       return function(e) {
+        const bubble = document.getElementById('short-url-copier-bubble');
+        const menu = document.getElementById('short-url-copier-context-menu');
+        if (bubble && (bubble === e.target || bubble.contains(e.target))) return;
+        if (menu && (menu === e.target || menu.contains(e.target))) return;
+
         e.stopPropagation();
         // 不呼叫 preventDefault()，讓瀏覽器預設行為執行
         console.log(`🔓 已攔截 ${eventName} 事件`);

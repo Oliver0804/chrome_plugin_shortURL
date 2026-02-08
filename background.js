@@ -649,8 +649,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       console.error('清理 URL 時發生錯誤:', error);
       sendResponse({ cleanedURL: request.url });
     });
-    // 返回 true 表示會非同步回應
     return true;
   }
+
+  if (request.action === 'openOptionsPage') {
+    chrome.runtime.openOptionsPage();
+    return false;
+  }
+
   return true;
 });
