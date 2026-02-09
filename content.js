@@ -741,7 +741,7 @@ if (window.shortURLCopierInjected) {
 
       try {
         if (action === 'hide') {
-          bubble.style.display = 'none';
+          bubble.style.setProperty('display', 'none', 'important');
           closeContextMenu();
           showNotification('氣泡已暫時隱藏，重新整理頁面即可恢復', 'info');
         } else if (action === 'toggle-unlock') {
