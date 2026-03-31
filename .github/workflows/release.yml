@@ -1,0 +1,33 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Package extension
+        run: |
+          zip -r "shortURL-${{ steps.version.outputs.VERSION }}.zip" \
+            manifest.json background.js content.js content.css \
+            popup.html popup.css popup.js \
+            options.html options.css options.js \
+            icons/ logo.png
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: shortURL-${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: true
