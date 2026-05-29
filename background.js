@@ -28,6 +28,9 @@ const URL_RULES = {
   'youtube.com': {
     keepParams: ['v', 't', 'list', 'lc']
   },
+  'music.youtube.com': {
+    keepParams: ['v', 't', 'list', 'lc']
+  },
 
   // Facebook：只保留 fbid 參數，並處理分享連結轉換
   'www.facebook.com': {
@@ -83,12 +86,12 @@ const URL_RULES = {
     removeParams: ['share_id', 'context']
   },
 
-  // Amazon：只保留商品 ID
+  // Amazon：商品 ID 在路徑 /dp/，query 皆為追蹤，全部移除
   'www.amazon.com': {
-    keepParams: ['keywords', 'qid', 'sr']
+    keepParams: []
   },
   'amazon.com': {
-    keepParams: ['keywords', 'qid', 'sr']
+    keepParams: []
   },
 
   // eBay：只保留必要參數
@@ -156,6 +159,59 @@ const URL_RULES = {
     keepParams: []
   },
 
+  // Google 搜尋：只保留 q（搜尋關鍵字）
+  'google.com': {
+    keepParams: ['q']
+  },
+  'google.com.tw': {
+    keepParams: ['q']
+  },
+
+  // Spotify：移除 si 等分享追蹤，ID 已在路徑
+  'open.spotify.com': {
+    keepParams: []
+  },
+
+  // 小紅書：保留 xsec_token（必要，缺少無法開啟），移除其他追蹤
+  'xiaohongshu.com': {
+    keepParams: ['xsec_token']
+  },
+
+  // momo 購物：只保留 i_code（商品碼）
+  'momoshop.com.tw': {
+    keepParams: ['i_code']
+  },
+
+  // PChome 24h：移除查詢參數，商品 ID 已在路徑
+  '24h.pchome.com.tw': {
+    keepParams: []
+  },
+
+  // Steam：移除追蹤參數，appid 已在路徑
+  'store.steampowered.com': {
+    removeParams: ['snr', 'curator_clanid']
+  },
+
+  // Apple App Store：移除聯盟與追蹤參數
+  'apps.apple.com': {
+    removeParams: ['uo', 'at', 'ct', 'itscg', 'itsct', 'app', 'mt']
+  },
+
+  // Apple Music：移除聯盟追蹤（保留 i 單曲定位、l 語言）
+  'music.apple.com': {
+    removeParams: ['uo', 'at', 'ct', 'itscg', 'itsct', 'app', 'mt']
+  },
+
+  // Medium：移除來源追蹤
+  'medium.com': {
+    removeParams: ['source', 'sk']
+  },
+
+  // Booking.com：移除追蹤參數
+  'booking.com': {
+    removeParams: ['aid', 'label', 'sid', 'srpvid', 'from_sf']
+  },
+
   // 通用規則：移除常見追蹤參數
   '*': {
     removeParams: [
@@ -189,6 +245,9 @@ const URL_RULES = {
     ]
   }
 };
+
+// 短連結解析結果快取（service worker 生命週期內），避免同一連結重複 fetch
+const shortLinkCache = new Map();
 
 /**
  * 檢查是否為 Facebook 分享短連結
@@ -540,6 +599,15 @@ function cleanURLSync(urlString) {
     // 尋找匹配的規則
     let rule = URL_RULES[hostname];
 
+    // hostname 正規化：去掉 www. / m. 前綴後用裸網域再查一次
+    // （自動涵蓋行動版與 www 變體，例如 m.youtube.com、www.medium.com）
+    if (!rule) {
+      const normalizedHost = hostname.replace(/^(www|m)\./, '');
+      if (normalizedHost !== hostname) {
+        rule = URL_RULES[normalizedHost];
+      }
+    }
+
     // 特殊處理：天貓的各種子域名
     if (!rule && (hostname.endsWith('.tmall.com') || hostname === 'tmall.com')) {
       // 商品詳情頁
@@ -617,17 +685,25 @@ async function cleanURL(urlString) {
 
     // 檢查是否為 Facebook 分享短連結，如果是則先解析
     if (isFacebookShareLink(url)) {
+      if (shortLinkCache.has(urlString)) {
+        return shortLinkCache.get(urlString);
+      }
       console.log('偵測到 Facebook 分享短連結，正在解析...');
       const resolvedUrl = await resolveFacebookShareLink(urlString);
       console.log('解析完成:', resolvedUrl);
+      shortLinkCache.set(urlString, resolvedUrl);
       return resolvedUrl;
     }
 
     // 檢查是否為 TikTok 短連結，如果是則先解析
     if (isTikTokShortLink(url)) {
+      if (shortLinkCache.has(urlString)) {
+        return shortLinkCache.get(urlString);
+      }
       console.log('偵測到 TikTok 短連結，正在解析...');
       const resolvedUrl = await resolveTikTokShortLink(urlString);
       console.log('解析完成:', resolvedUrl);
+      shortLinkCache.set(urlString, resolvedUrl);
       return resolvedUrl;
     }
 
