@@ -18,15 +18,15 @@ const URL_RULES = {
     keepParams: []
   },
 
-  // YouTube：保留 v（影片 ID）、t（時間戳記）和 list（播放清單）參數
+  // YouTube：保留 v（影片 ID）、t（時間戳記）、list（播放清單）和 lc（留言定位）參數
   'www.youtube.com': {
-    keepParams: ['v', 't', 'list']
+    keepParams: ['v', 't', 'list', 'lc']
   },
   'youtu.be': {
-    keepParams: ['t', 'list']
+    keepParams: ['t', 'list', 'lc']
   },
   'youtube.com': {
-    keepParams: ['v', 't', 'list']
+    keepParams: ['v', 't', 'list', 'lc']
   },
 
   // Facebook：只保留 fbid 參數，並處理分享連結轉換
