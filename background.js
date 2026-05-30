@@ -249,6 +249,66 @@ const URL_RULES = {
 // 短連結解析結果快取（service worker 生命週期內），避免同一連結重複 fetch
 const shortLinkCache = new Map();
 
+// 使用者自訂設定的記憶體快取，供同步的 cleanURLSync 直接讀取
+const userSettings = {
+  customWhitelist: [],     // 不清理的網域清單（含子網域）
+  customRemoveParams: []   // 全站額外移除的查詢參數
+};
+
+/**
+ * 將設定值正規化為字串陣列
+ * 支援陣列、或以換行/逗號分隔的字串
+ * @param {string|string[]} value
+ * @returns {string[]}
+ */
+function parseSettingList(value) {
+  if (Array.isArray(value)) {
+    return value.map(s => String(s).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * 從 chrome.storage 載入自訂設定到記憶體快取
+ * @returns {Promise<void>}
+ */
+async function ensureSettings() {
+  try {
+    const result = await chrome.storage.local.get('settings');
+    const settings = result.settings || {};
+    userSettings.customWhitelist = parseSettingList(settings.customWhitelist)
+      .map(d => d.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
+    userSettings.customRemoveParams = parseSettingList(settings.customRemoveParams);
+  } catch (error) {
+    console.error('載入自訂設定失敗:', error);
+  }
+}
+
+// 啟動時載入一次
+ensureSettings();
+
+// 設定變更時即時更新快取
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) {
+    ensureSettings();
+  }
+});
+
+/**
+ * 檢查 hostname 是否落在使用者白名單內（比對裸網域與子網域）
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+function isWhitelisted(hostname) {
+  const host = hostname.toLowerCase();
+  return userSettings.customWhitelist.some(domain => {
+    return host === domain || host.endsWith('.' + domain);
+  });
+}
+
 /**
  * 檢查是否為 Facebook 分享短連結
  * @param {URL} url - URL 物件
@@ -596,6 +656,11 @@ function cleanURLSync(urlString) {
     const url = new URL(urlString);
     const hostname = url.hostname;
 
+    // 使用者白名單：完全跳過清理，原樣返回
+    if (isWhitelisted(hostname)) {
+      return urlString;
+    }
+
     // 尋找匹配的規則
     let rule = URL_RULES[hostname];
 
@@ -662,6 +727,13 @@ function cleanURLSync(urlString) {
           url.searchParams.delete(param);
         });
       }
+    }
+
+    // 套用使用者自訂的額外移除參數（適用於所有網站）
+    if (userSettings.customRemoveParams.length > 0) {
+      userSettings.customRemoveParams.forEach(param => {
+        url.searchParams.delete(param);
+      });
     }
 
     // 移除末尾的 hash (可選)
@@ -734,4 +806,48 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   return true;
+});
+
+// ===== 瀏覽器原生右鍵選單 =====
+
+// 安裝/更新時建立右鍵選單項目
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'copyCleanLink',
+      title: '複製乾淨網址',
+      contexts: ['link', 'page']
+    });
+  });
+});
+
+// 右鍵選單點擊處理：清理網址後委派 content script 寫入剪貼簿
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== 'copyCleanLink') {
+    return;
+  }
+
+  // 連結優先；否則使用當前頁面網址
+  const target = info.linkUrl || info.pageUrl || (tab && tab.url);
+  if (!target) {
+    return;
+  }
+
+  try {
+    const cleanedURL = await cleanURL(target);
+
+    if (tab && tab.id != null) {
+      // Service Worker 無法直接寫剪貼簿，交給 content script 處理並顯示通知
+      chrome.tabs.sendMessage(
+        tab.id,
+        { action: 'copyCleanedUrl', text: cleanedURL },
+        () => {
+          // content script 未注入（如 chrome:// 頁面）時忽略錯誤
+          void chrome.runtime.lastError;
+        }
+      );
+    }
+  } catch (error) {
+    console.error('右鍵選單清理網址失敗:', error);
+  }
 });

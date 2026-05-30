@@ -995,6 +995,63 @@ if (window.shortURLCopierInjected) {
     console.log('✓ Short URL Copier: 解鎖功能已初始化');
   }
 
+  /**
+   * 獨立的剪貼簿寫入函式（不依賴氣泡，供右鍵選單等使用）
+   */
+  async function copyTextToClipboard(text) {
+    let success = false;
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+    } catch (err) {
+      console.warn('execCommand 失敗，嘗試 Clipboard API:', err);
+    }
+    if (!success) {
+      try {
+        await navigator.clipboard.writeText(text);
+        success = true;
+      } catch (err) {
+        console.error('Clipboard API 也失敗:', err);
+      }
+    }
+    return success;
+  }
+
+  // 監聽來自 background / popup 的訊息
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // 右鍵選單：寫入清理後的網址並顯示通知
+    if (request.action === 'copyCleanedUrl' && request.text) {
+      copyTextToClipboard(request.text).then(ok => {
+        showNotification(ok ? '✓ 已複製乾淨網址！' : '✗ 複製失敗，請重試', ok ? 'success' : 'error');
+        sendResponse({ success: ok });
+      });
+      return true;
+    }
+
+    // 氣泡開關即時切換，無需重新整理頁面
+    if (request.action === 'toggleBubble') {
+      const existing = document.getElementById('short-url-copier-bubble');
+      if (request.show) {
+        if (existing) {
+          existing.style.display = '';
+        } else {
+          initBubble();
+        }
+      } else if (existing) {
+        existing.style.display = 'none';
+      }
+      sendResponse({ success: true });
+      return false;
+    }
+
+    return false;
+  });
+
   // 開始初始化 - 三個功能獨立啟動
   if (document.readyState === 'loading') {
     console.log('⏳ Short URL Copier: 等待 DOMContentLoaded');

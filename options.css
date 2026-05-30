@@ -138,6 +138,35 @@ main {
   margin-left: 60px;
 }
 
+/* 自訂規則 textarea */
+.setting-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.setting-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  line-height: 1.5;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  resize: vertical;
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+
+.setting-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
 /* 按鈕 */
 .button-group {
   display: flex;

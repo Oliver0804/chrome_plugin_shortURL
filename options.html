@@ -69,6 +69,28 @@
         </div>
       </section>
 
+      <section class="settings-section">
+        <h2>🛠️ 自訂規則</h2>
+
+        <div class="setting-item">
+          <label class="setting-label" for="customWhitelist">白名單網域（不清理）</label>
+          <textarea id="customWhitelist" class="setting-textarea" rows="4"
+            placeholder="每行一個網域，例如：&#10;example.com&#10;mysite.org"></textarea>
+          <p class="setting-description">
+            這些網域（含子網域）的網址將完全保留，不移除任何參數。
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label" for="customRemoveParams">額外移除的參數（全站）</label>
+          <textarea id="customRemoveParams" class="setting-textarea" rows="4"
+            placeholder="每行一個參數名稱，例如：&#10;my_tracking_id&#10;custom_ref"></textarea>
+          <p class="setting-description">
+            在所有網站上額外移除這些查詢參數，適用於追蹤參數沒被內建規則涵蓋的情況。
+          </p>
+        </div>
+      </section>
+
       <div class="button-group">
         <button id="saveButton" class="btn btn-primary">儲存設定</button>
         <button id="resetButton" class="btn btn-secondary">重置為預設值</button>
@@ -79,7 +101,7 @@
 
     <footer>
       <p>
-        <strong>Short URL Copier</strong> <span id="version">v1.3.8</span><br>
+        <strong>Short URL Copier</strong> <span id="version">v1.3.23</span><br>
         作者：BASHCAT |
         <a href="https://github.com/Oliver0804" target="_blank">GitHub</a>
       </p>
