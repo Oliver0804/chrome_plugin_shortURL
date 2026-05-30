@@ -36,6 +36,28 @@ body {
   opacity: 0.95;
 }
 
+.options-button {
+  width: calc(100% - 24px);
+  margin: 0 12px 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.1s;
+}
+
+.options-button:hover {
+  filter: brightness(1.08);
+}
+
+.options-button:active {
+  transform: scale(0.98);
+}
+
 .author-info {
   width: 100%;
   background: rgba(0, 0, 0, 0.7);

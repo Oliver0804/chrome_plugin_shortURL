@@ -4,6 +4,18 @@ console.log('Short URL Copier popup loaded');
 const image = document.querySelector('.main-image');
 const bubbleToggle = document.getElementById('bubbleToggle');
 const unlockToggle = document.getElementById('unlockToggle');
+const openOptionsButton = document.getElementById('openOptions');
+
+// 開啟進階設定頁
+if (openOptionsButton) {
+  openOptionsButton.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage(() => {
+      if (chrome.runtime.lastError) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
+      }
+    });
+  });
+}
 
 // 載入設定
 async function loadSettings() {

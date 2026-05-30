@@ -787,6 +787,22 @@ async function cleanURL(urlString) {
   }
 }
 
+/**
+ * 開啟設定頁：優先用 openOptionsPage，失敗則直接開新分頁兜底
+ * （openOptionsPage 在部分情況會拋 "Could not create an options page"）
+ */
+function openOptionsPage() {
+  try {
+    chrome.runtime.openOptionsPage(() => {
+      if (chrome.runtime.lastError) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
+      }
+    });
+  } catch (error) {
+    chrome.tabs.create({ url: chrome.runtime.getURL('options.html') });
+  }
+}
+
 // 監聽來自 popup 的訊息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'cleanURL') {
@@ -801,7 +817,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'openOptionsPage') {
-    chrome.runtime.openOptionsPage();
+    openOptionsPage();
     return false;
   }
 
