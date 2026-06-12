@@ -20,10 +20,22 @@ if (window.shortURLCopierInjected) {
     unlockRightClick: true
   };
 
+  // 設定記憶體快取：啟動讀一次，之後由 onChanged 同步，
+  // 避免 showNotification 等高頻路徑每次都跨進程讀 storage
+  let cachedSettings = null;
+
   async function loadSettings() {
+    if (cachedSettings) return cachedSettings;
     const result = await chrome.storage.local.get('settings');
-    return { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
+    cachedSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
+    return cachedSettings;
   }
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.settings) {
+      cachedSettings = { ...DEFAULT_SETTINGS, ...(changes.settings.newValue || {}) };
+    }
+  });
 
   // 建立通知容器（全域，兩個功能都會用到）
   let notificationElement = null;
@@ -248,16 +260,6 @@ if (window.shortURLCopierInjected) {
     if (window.location.hostname.includes('facebook.com')) {
       console.log('🔵 Facebook 頁面：啟用複製按鈕監聽');
 
-      // 使用 MutationObserver 監聽 DOM 變化，捕捉動態載入的按鈕
-      const observer = new MutationObserver((mutations) => {
-        // 當 DOM 變化時，檢查是否有點擊複製相關的動作
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-
       // 監聽所有點擊事件，檢測複製按鈕
       document.addEventListener('click', async (e) => {
         const target = e.target;
@@ -307,31 +309,14 @@ if (window.shortURLCopierInjected) {
       }
     });
 
-    // ========== 方法 4: 持續輪詢剪貼簿 ==========
+    // ========== 方法 4: 輪詢剪貼簿（僅聚焦分頁） ==========
     console.log('🔍 啟用剪貼簿輪詢監聽');
 
-    // 每 300ms 檢查一次剪貼簿（加快頻率）
-    let pollCount = 0;
-    setInterval(async () => {
-      pollCount++;
-      // 每 10 秒 log 一次狀態，確認輪詢正常運作
-      if (pollCount % 33 === 0) {
-        console.log(`🔄 剪貼簿輪詢中... (已執行 ${pollCount} 次, lastCheck: ${lastClipboardCheck.substring(0, 30)}...)`);
-      }
-
-      // 直接在這裡檢查，不透過 tryReadAndCleanClipboard 以便更詳細 debug
-      if (isProcessingClipboard) return;
-
-      try {
-        const clipboardText = await navigator.clipboard.readText();
-        if (clipboardText && clipboardText !== lastClipboardCheck) {
-          console.log('📋 [poll] 偵測到新內容:', clipboardText.substring(0, 80));
-          await cleanClipboardURL(clipboardText, 'poll');
-        }
-      } catch (error) {
-        // 沒有焦點時會失敗，這是正常的
-      }
-    }, 300);
+    setInterval(() => {
+      // 沒有焦點的分頁讀取剪貼簿必定失敗，直接跳過避免背景分頁空轉
+      if (!document.hasFocus() || isProcessingClipboard) return;
+      tryReadAndCleanClipboard('poll');
+    }, 1000);
 
     console.log('✓ Short URL Copier: 剪貼簿監聽已完全載入');
   }
@@ -631,6 +616,9 @@ if (window.shortURLCopierInjected) {
           if (cleanedURL) {
             console.log('收到清理後的 URL:', cleanedURL);
             copyToClipboard(cleanedURL);
+          } else if (!chrome.runtime?.id) {
+            // 擴充功能重新載入/更新後，舊分頁的 content script 通道已失效
+            showNotification('⚠ 擴充功能已更新，請重新整理此頁面', 'info');
           } else {
             showNotification('✗ 取得清理網址失敗', 'error');
           }
@@ -814,7 +802,7 @@ if (window.shortURLCopierInjected) {
 
     // 解鎖用的 CSS 規則
     const UNLOCK_CSS = `
-      * {
+      body, body * {
         -webkit-user-select: text !important;
         -moz-user-select: text !important;
         -ms-user-select: text !important;
@@ -842,7 +830,7 @@ if (window.shortURLCopierInjected) {
 
         e.stopPropagation();
         // 不呼叫 preventDefault()，讓瀏覽器預設行為執行
-        console.log(`🔓 已攔截 ${eventName} 事件`);
+        // （此處不可 console.log：selectstart 在拖曳選取時連續觸發）
       };
     }
 
@@ -970,9 +958,28 @@ if (window.shortURLCopierInjected) {
       showNotification('🔒 已還原右鍵與選取限制', 'info');
     }
 
-    // 載入設定並初始化
+    /**
+     * 偵測頁面是否真的有鎖右鍵/選取（inline handler 或 user-select: none）
+     * 只有偵測到鎖定才自動啟用，讓一般頁面免付萬用樣式重算與 observer 成本。
+     * 偵測不到但實際有鎖的網站（如 addEventListener 方式），可由氣泡右鍵選單手動開啟兜底。
+     */
+    function pageLooksLocked() {
+      const roots = [document.documentElement, document.body];
+      for (const el of roots) {
+        if (el && (el.oncontextmenu || el.onselectstart || el.ondragstart)) {
+          return true;
+        }
+      }
+      if (document.querySelector('[oncontextmenu], [onselectstart], [ondragstart]')) {
+        return true;
+      }
+      const bodyStyle = window.getComputedStyle(document.body);
+      return bodyStyle.userSelect === 'none' || bodyStyle.webkitUserSelect === 'none';
+    }
+
+    // 載入設定並初始化：設定開啟且頁面確實有鎖定行為才自動啟用
     const settings = await loadSettings();
-    if (settings.unlockRightClick) {
+    if (settings.unlockRightClick && pageLooksLocked()) {
       enableUnlock();
     }
 

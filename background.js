@@ -246,8 +246,54 @@ const URL_RULES = {
   }
 };
 
-// 短連結解析結果快取（service worker 生命週期內），避免同一連結重複 fetch
+// 短連結解析結果快取：記憶體 Map 為 L1，chrome.storage.session 為 L2
+// （session 層可活過 service worker 回收，瀏覽器關閉即自動清空）
 const shortLinkCache = new Map();
+const SHORT_LINK_CACHE_KEY = 'shortLinkCache';
+const SHORT_LINK_CACHE_MAX = 100;
+
+/**
+ * 讀取短連結快取（先查記憶體，再查 storage.session）
+ * @param {string} url - 原始短連結
+ * @returns {Promise<string|null>} - 已解析的 URL 或 null
+ */
+async function getCachedShortLink(url) {
+  if (shortLinkCache.has(url)) {
+    return shortLinkCache.get(url);
+  }
+  try {
+    const result = await chrome.storage.session.get(SHORT_LINK_CACHE_KEY);
+    const cache = result[SHORT_LINK_CACHE_KEY] || {};
+    if (cache[url]) {
+      shortLinkCache.set(url, cache[url]);
+      return cache[url];
+    }
+  } catch (error) {
+    // storage.session 不可用時退回純記憶體快取
+  }
+  return null;
+}
+
+/**
+ * 寫入短連結快取（同步寫入兩層，超過上限移除最早項目）
+ * @param {string} url - 原始短連結
+ * @param {string} resolvedUrl - 解析後的 URL
+ */
+async function setCachedShortLink(url, resolvedUrl) {
+  shortLinkCache.set(url, resolvedUrl);
+  try {
+    const result = await chrome.storage.session.get(SHORT_LINK_CACHE_KEY);
+    const cache = result[SHORT_LINK_CACHE_KEY] || {};
+    cache[url] = resolvedUrl;
+    const keys = Object.keys(cache);
+    while (keys.length > SHORT_LINK_CACHE_MAX) {
+      delete cache[keys.shift()];
+    }
+    await chrome.storage.session.set({ [SHORT_LINK_CACHE_KEY]: cache });
+  } catch (error) {
+    // 寫入失敗不影響主流程
+  }
+}
 
 // 使用者自訂設定的記憶體快取，供同步的 cleanURLSync 直接讀取
 const userSettings = {
@@ -757,25 +803,27 @@ async function cleanURL(urlString) {
 
     // 檢查是否為 Facebook 分享短連結，如果是則先解析
     if (isFacebookShareLink(url)) {
-      if (shortLinkCache.has(urlString)) {
-        return shortLinkCache.get(urlString);
+      const cached = await getCachedShortLink(urlString);
+      if (cached) {
+        return cached;
       }
       console.log('偵測到 Facebook 分享短連結，正在解析...');
       const resolvedUrl = await resolveFacebookShareLink(urlString);
       console.log('解析完成:', resolvedUrl);
-      shortLinkCache.set(urlString, resolvedUrl);
+      await setCachedShortLink(urlString, resolvedUrl);
       return resolvedUrl;
     }
 
     // 檢查是否為 TikTok 短連結，如果是則先解析
     if (isTikTokShortLink(url)) {
-      if (shortLinkCache.has(urlString)) {
-        return shortLinkCache.get(urlString);
+      const cached = await getCachedShortLink(urlString);
+      if (cached) {
+        return cached;
       }
       console.log('偵測到 TikTok 短連結，正在解析...');
       const resolvedUrl = await resolveTikTokShortLink(urlString);
       console.log('解析完成:', resolvedUrl);
-      shortLinkCache.set(urlString, resolvedUrl);
+      await setCachedShortLink(urlString, resolvedUrl);
       return resolvedUrl;
     }
 
