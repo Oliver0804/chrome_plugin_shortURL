@@ -26,9 +26,7 @@ if (window.shortURLCopierInjected) {
     logo:   'logo.png',
     puddle: 'mascot/mascot-puddle.webp',
     shy:    'mascot/mascot-shy.webp',
-    spider: 'mascot/mascot-spider.gif',
-    bow:    'mascot/mascot-bow.gif',
-    panda:  'mascot/mascot-panda.gif'
+    spider: 'mascot/mascot-spider.gif'
   };
 
   // 設定記憶體快取：啟動讀一次，之後由 onChanged 同步，
