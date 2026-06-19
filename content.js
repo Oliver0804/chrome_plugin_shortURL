@@ -629,7 +629,6 @@ if (window.shortURLCopierInjected) {
         // 如果沒有移動，則視為點擊
         if (!hasMoved) {
           console.log('🖱️ 點擊氣泡');
-          registerEasterClick();
 
           // 直接 await mousedown 時預取的結果，保持在 user activation window 內
           const cleanedURL = await prefetchedCleanURL;
