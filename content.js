@@ -17,7 +17,18 @@ if (window.shortURLCopierInjected) {
   const DEFAULT_SETTINGS = {
     showBubble: true,
     showNotifications: true,
-    unlockRightClick: true
+    unlockRightClick: true,
+    mascotStyle: 'logo'
+  };
+
+  // 浮動氣泡可選造型：key 對應到設定值，file 為擴充功能內的圖片路徑
+  const MASCOTS = {
+    logo:   'logo.png',
+    puddle: 'mascot/mascot-puddle.webp',
+    shy:    'mascot/mascot-shy.webp',
+    spider: 'mascot/mascot-spider.gif',
+    bow:    'mascot/mascot-bow.gif',
+    panda:  'mascot/mascot-panda.gif'
   };
 
   // 設定記憶體快取：啟動讀一次，之後由 onChanged 同步，
@@ -34,6 +45,12 @@ if (window.shortURLCopierInjected) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) {
       cachedSettings = { ...DEFAULT_SETTINGS, ...(changes.settings.newValue || {}) };
+      // 造型即時生效：氣泡已存在時直接換背景，免重整頁面
+      const bubble = document.getElementById('short-url-copier-bubble');
+      if (bubble) {
+        const mascotFile = MASCOTS[cachedSettings.mascotStyle] || MASCOTS.logo;
+        bubble.style.backgroundImage = `url('${chrome.runtime.getURL(mascotFile)}')`;
+      }
     }
   });
 
@@ -346,9 +363,10 @@ if (window.shortURLCopierInjected) {
     const bubble = document.createElement('div');
     bubble.id = 'short-url-copier-bubble';
 
-    // 設定 logo.png 作為背景圖片
-    const logoUrl = chrome.runtime.getURL('logo.png');
-    console.log('📸 Logo URL:', logoUrl);
+    // 依設定選擇造型圖片作為背景（找不到時回退 logo）
+    const mascotFile = MASCOTS[settings.mascotStyle] || MASCOTS.logo;
+    const logoUrl = chrome.runtime.getURL(mascotFile);
+    console.log('📸 Mascot URL:', logoUrl);
     bubble.style.backgroundImage = `url('${logoUrl}')`;
     bubble.style.backgroundSize = 'cover';
     bubble.style.backgroundPosition = 'center';
@@ -608,6 +626,7 @@ if (window.shortURLCopierInjected) {
         // 如果沒有移動，則視為點擊
         if (!hasMoved) {
           console.log('🖱️ 點擊氣泡');
+          registerEasterClick();
 
           // 直接 await mousedown 時預取的結果，保持在 user activation window 內
           const cleanedURL = await prefetchedCleanURL;
@@ -685,7 +704,16 @@ if (window.shortURLCopierInjected) {
       const currentSettings = await loadSettings();
       const isUnlockOn = currentSettings.unlockRightClick;
 
+      // 造型圖案列（只顯示圖案，不顯示名稱）
+      const mascotIcons = Object.keys(MASCOTS).map((key) => `
+        <button type="button" class="context-menu-mascot${currentSettings.mascotStyle === key ? ' active' : ''}" data-action="set-mascot" data-mascot="${key}">
+          <img src="${chrome.runtime.getURL(MASCOTS[key])}" alt="" draggable="false">
+        </button>
+      `).join('');
+
       contextMenu.innerHTML = `
+        <div class="context-menu-mascots">${mascotIcons}</div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="hide">
           <span class="context-menu-icon">👁</span>
           <span>隱藏浮動氣泡</span>
@@ -722,6 +750,21 @@ if (window.shortURLCopierInjected) {
 
     // 事件委派：只綁定一次，避免記憶體洩漏
     contextMenu.addEventListener('click', async (e) => {
+      // 先處理造型切換（mascot 按鈕不是 .context-menu-item）
+      const mascotBtn = e.target.closest('.context-menu-mascot');
+      if (mascotBtn) {
+        const key = mascotBtn.dataset.mascot;
+        if (key && MASCOTS[key]) {
+          const s = await loadSettings();
+          await chrome.storage.local.set({ settings: { ...s, mascotStyle: key } });
+          // 同步高亮（onChanged 會處理氣泡背景）
+          contextMenu.querySelectorAll('.context-menu-mascot').forEach((b) => {
+            b.classList.toggle('active', b.dataset.mascot === key);
+          });
+        }
+        return;
+      }
+
       const item = e.target.closest('.context-menu-item');
       if (!item) return;
 

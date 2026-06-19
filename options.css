@@ -167,6 +167,56 @@ main {
   border-color: #667eea;
 }
 
+/* 角色選擇器 */
+.mascot-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mascot-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mascot-option:hover {
+  border-color: #b3c0f0;
+  transform: translateY(-2px);
+}
+
+.mascot-option img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  background: white;
+  border-radius: 8px;
+}
+
+.mascot-option span {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+}
+
+.mascot-option.active {
+  border-color: #667eea;
+  background: #eef1fc;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+}
+
+.mascot-option.active span {
+  color: #667eea;
+}
+
 /* 按鈕 */
 .button-group {
   display: flex;

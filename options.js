@@ -8,7 +8,8 @@ const DEFAULT_SETTINGS = {
   showNotifications: true,
   unlockRightClick: true,
   customWhitelist: '',
-  customRemoveParams: ''
+  customRemoveParams: '',
+  mascotStyle: 'logo'
 };
 
 // DOM 元素
@@ -34,6 +35,7 @@ async function loadSettings() {
     unlockRightClickCheckbox.checked = settings.unlockRightClick === true;
     customWhitelistTextarea.value = settings.customWhitelist || '';
     customRemoveParamsTextarea.value = settings.customRemoveParams || '';
+    syncMascotSelection(settings.mascotStyle || 'logo');
 
     console.log('✓ 設定已載入:', settings);
   } catch (error) {
@@ -68,7 +70,8 @@ async function saveSettings() {
       showNotifications: showNotificationsCheckbox.checked,
       unlockRightClick: unlockRightClickCheckbox.checked,
       customWhitelist: customWhitelistTextarea.value.trim(),
-      customRemoveParams: customRemoveParamsTextarea.value.trim()
+      customRemoveParams: customRemoveParamsTextarea.value.trim(),
+      mascotStyle: getSelectedMascot()
     };
 
     await chrome.storage.local.set({ settings });
@@ -93,6 +96,7 @@ async function resetSettings() {
     unlockRightClickCheckbox.checked = DEFAULT_SETTINGS.unlockRightClick;
     customWhitelistTextarea.value = DEFAULT_SETTINGS.customWhitelist;
     customRemoveParamsTextarea.value = DEFAULT_SETTINGS.customRemoveParams;
+    syncMascotSelection(DEFAULT_SETTINGS.mascotStyle);
 
     console.log('✓ 設定已重置為預設值');
     showStatus('已重置為預設值！請重新整理頁面以套用新設定', 'success');
@@ -112,6 +116,29 @@ function showStatus(message, type = 'success') {
   setTimeout(() => {
     statusDiv.classList.remove('show');
   }, 3000);
+}
+
+// 角色選擇器：點圖切換高亮（實際寫入由 saveSettings 統一處理）
+const mascotPicker = document.getElementById('mascotPicker');
+
+function syncMascotSelection(key) {
+  if (!mascotPicker) return;
+  mascotPicker.querySelectorAll('.mascot-option').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.mascot === key);
+  });
+}
+
+function getSelectedMascot() {
+  if (!mascotPicker) return 'logo';
+  const active = mascotPicker.querySelector('.mascot-option.active');
+  return active ? active.dataset.mascot : 'logo';
+}
+
+if (mascotPicker) {
+  mascotPicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mascot-option');
+    if (btn) syncMascotSelection(btn.dataset.mascot);
+  });
 }
 
 // 事件監聽

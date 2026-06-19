@@ -24,7 +24,7 @@ jobs:
             manifest.json background.js content.js content.css \
             popup.html popup.css popup.js \
             options.html options.css options.js \
-            icons/ logo.png
+            icons/ mascot/ logo.png
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
