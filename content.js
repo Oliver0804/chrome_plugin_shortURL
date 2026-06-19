@@ -26,7 +26,12 @@ if (window.shortURLCopierInjected) {
     logo:   'logo.png',
     puddle: 'mascot/mascot-puddle.webp',
     shy:    'mascot/mascot-shy.webp',
-    spider: 'mascot/mascot-spider.gif'
+    spider: 'mascot/mascot-spider.gif',
+    pillow: 'mascot/mascot-pillow.webp',
+    bunny:  'mascot/mascot-bunny.webp',
+    smile:  'mascot/mascot-smile.webp',
+    cute:   'mascot/mascot-cute.webp',
+    wave:   'mascot/mascot-wave.webp'
   };
 
   // 設定記憶體快取：啟動讀一次，之後由 onChanged 同步，
