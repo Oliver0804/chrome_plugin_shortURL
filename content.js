@@ -775,6 +775,7 @@ if (window.shortURLCopierInjected) {
       try {
         if (action === 'hide') {
           bubble.style.setProperty('display', 'none', 'important');
+          manuallyHidden = true;
           closeContextMenu();
           showNotification('氣泡已暫時隱藏，重新整理頁面即可恢復', 'info');
         } else if (action === 'toggle-unlock') {
@@ -798,6 +799,27 @@ if (window.shortURLCopierInjected) {
 
     // 氣泡右鍵事件
     bubble.addEventListener('contextmenu', showContextMenu);
+
+    // 全螢幕播放影片時自動隱藏氣泡，退出時恢復（除非使用者已手動隱藏）
+    let manuallyHidden = false;
+    const onFullscreenChange = () => {
+      const fsEl =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+      if (fsEl) {
+        if (bubble.style.display !== 'none') {
+          bubble.dataset.hiddenByFullscreen = '1';
+          bubble.style.setProperty('display', 'none', 'important');
+        }
+      } else if (bubble.dataset.hiddenByFullscreen === '1') {
+        delete bubble.dataset.hiddenByFullscreen;
+        if (!manuallyHidden) bubble.style.removeProperty('display');
+      }
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
     // 點擊其他地方關閉選單
     document.addEventListener('mousedown', (e) => {
