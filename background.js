@@ -11,6 +11,7 @@ const URL_RULES = {
   },
 
   // Instagram：移除所有查詢參數
+  // （實際清理由 cleanInstagramUrl 處理，額外做網域與路徑正規化；此規則為備援）
   'www.instagram.com': {
     keepParams: []
   },
@@ -671,6 +672,231 @@ async function resolveTikTokShortLink(shareUrl) {
   }
 }
 
+// Instagram 網域清單（不含 ig.me 短網域）
+const INSTAGRAM_HOSTS = new Set([
+  'instagram.com',
+  'www.instagram.com',
+  'm.instagram.com',
+  'web.instagram.com'
+]);
+
+// Meta 系列的外連跳轉包裝網域（?u=<實際網址>）
+const META_REDIRECT_HOSTS = new Set([
+  'l.instagram.com',
+  'l.facebook.com',
+  'lm.facebook.com',
+  'l.messenger.com'
+]);
+
+/**
+ * 檢查是否為 Instagram 相關網域（含 ig.me 短網域）
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+function isInstagramHost(hostname) {
+  const host = hostname.toLowerCase();
+  return INSTAGRAM_HOSTS.has(host) || host === 'ig.me' || host === 'www.ig.me';
+}
+
+/**
+ * 檢查是否為 Instagram 新版分享短連結
+ * 2024 年後 IG 分享按鈕改發這種格式，追蹤碼在「路徑」而不是查詢參數，
+ * 因此單純移除參數無法還原成乾淨網址，必須跟隨重定向解析。
+ * 支援：
+ * - /share/reel/{token}/、/share/p/{token}/、/share/v/{token}/
+ * - /share/{token}/、/share/_{token}/
+ * - ig.me/... 短連結
+ * @param {URL} url - URL 物件
+ * @returns {boolean}
+ */
+function isInstagramShareLink(url) {
+  const host = url.hostname.toLowerCase();
+  if (host === 'ig.me' || host === 'www.ig.me') {
+    return true;
+  }
+  if (!INSTAGRAM_HOSTS.has(host)) {
+    return false;
+  }
+  return /^\/share(\/|$)/.test(url.pathname);
+}
+
+/**
+ * 清理並正規化 Instagram URL
+ * - 網域統一為 www.instagram.com
+ * - /reels/{code} 與 /{帳號}/reel/{code} 一律正規化為 /reel/{code}/
+ * - 移除所有查詢參數（igsh、igsi、img_index 等）與 hash
+ * @param {string} urlString - URL 字串
+ * @returns {string} - 清理後的 URL
+ */
+function cleanInstagramUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    if (!INSTAGRAM_HOSTS.has(url.hostname.toLowerCase())) {
+      return urlString;
+    }
+
+    url.protocol = 'https:';
+    url.hostname = 'www.instagram.com';
+    url.search = '';
+    url.hash = '';
+
+    // /share/... 的 token 不是貼文代碼，不能改寫路徑（會變成無效連結）
+    if (/^\/share(\/|$)/.test(url.pathname)) {
+      return url.toString();
+    }
+
+    // /p/{code}、/reel(s)/{code}、/tv/{code}
+    let match = url.pathname.match(/^\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+    // /{帳號}/p/{code}、/{帳號}/reel/{code}（動態牆點進去的格式）
+    if (!match) {
+      const viaUser = url.pathname.match(/^\/[A-Za-z0-9._]+\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+      if (viaUser) {
+        match = viaUser;
+      }
+    }
+
+    if (match) {
+      const type = match[1] === 'reels' ? 'reel' : match[1];
+      url.pathname = `/${type}/${match[2]}/`;
+    }
+
+    return url.toString();
+  } catch (error) {
+    return urlString;
+  }
+}
+
+/**
+ * 從 HTML 中找出 Instagram 貼文的真實網址
+ * 除了 og:url / canonical 外，額外支援 IG 頁面內嵌的 JSON 欄位
+ * @param {string} html - HTML 內容
+ * @returns {string|null}
+ */
+function extractInstagramUrlFromHtml(html) {
+  const extracted = extractUrlFromHtml(html);
+  if (extracted) {
+    return extracted;
+  }
+
+  // IG 頁面常見的內嵌欄位："canonical_url":"https:\/\/www.instagram.com\/reel\/xxx\/"
+  const canonicalJson = html.match(/"canonical_url":"([^"]+)"/);
+  if (canonicalJson && canonicalJson[1]) {
+    return canonicalJson[1].replace(/\\\//g, '/');
+  }
+
+  // 退而求其次：頁面中出現的第一個 /p/、/reel/、/tv/ 連結
+  const mediaMatch = html.match(/https:\\?\/\\?\/(?:www\.)?instagram\.com\\?\/(p|reel|tv)\\?\/([A-Za-z0-9_-]+)/);
+  if (mediaMatch) {
+    return `https://www.instagram.com/${mediaMatch[1]}/${mediaMatch[2]}/`;
+  }
+
+  return null;
+}
+
+/**
+ * 從回應中取出已解析的 Instagram 網址
+ * @param {Response} response - fetch 回應
+ * @returns {Promise<string|null>} - 解析後的網址，失敗回傳 null
+ */
+async function extractResolvedInstagramUrl(response) {
+  // 方法 A：跟隨重定向後的最終網址已離開 /share/
+  try {
+    const finalUrlObj = new URL(response.url);
+    if (INSTAGRAM_HOSTS.has(finalUrlObj.hostname.toLowerCase()) &&
+        !/^\/share(\/|$)/.test(finalUrlObj.pathname)) {
+      return cleanInstagramUrl(response.url);
+    }
+  } catch (error) {
+    // response.url 不可解析時往下走方法 B
+  }
+
+  // 方法 B：從 HTML 內容（og:url / canonical / 內嵌 JSON）提取
+  try {
+    const html = await response.text();
+    const extracted = extractInstagramUrlFromHtml(html);
+    if (extracted) {
+      const extractedObj = new URL(extracted);
+      if (INSTAGRAM_HOSTS.has(extractedObj.hostname.toLowerCase()) &&
+          !/^\/share(\/|$)/.test(extractedObj.pathname)) {
+        return cleanInstagramUrl(extracted);
+      }
+    }
+  } catch (error) {
+    // 讀取或解析失敗，交由呼叫端處理
+  }
+
+  return null;
+}
+
+/**
+ * 解析 Instagram 分享短連結，取得真實貼文網址
+ * 先以不帶 cookie 的請求嘗試；IG 對未登入者常擋在登入頁，
+ * 因此失敗時再帶上 cookie 重試一次（僅送往 instagram.com 本身）
+ * @param {string} shareUrl - 分享短連結
+ * @returns {Promise<string|null>} - 解析後的真實 URL，解析不到時回傳 null
+ */
+async function resolveInstagramShareLink(shareUrl) {
+  const requestOptions = (credentials) => ({
+    method: 'GET',
+    redirect: 'follow',
+    credentials,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  try {
+    console.log('[IG Share] 開始解析:', shareUrl);
+
+    for (const credentials of ['omit', 'include']) {
+      try {
+        const response = await fetch(shareUrl, requestOptions(credentials));
+        const resolved = await extractResolvedInstagramUrl(response);
+        if (resolved) {
+          console.log(`[IG Share] 解析成功 (credentials=${credentials}):`, resolved);
+          return resolved;
+        }
+      } catch (error) {
+        console.log(`[IG Share] 請求失敗 (credentials=${credentials}):`, error.message);
+      }
+    }
+
+    console.log('[IG Share] 解析不到真實網址');
+    return null;
+  } catch (error) {
+    console.error('[IG Share] 解析失敗:', error);
+    return null;
+  }
+}
+
+/**
+ * 拆開 Meta 系列的外連跳轉網址（l.instagram.com / l.facebook.com 等）
+ * @param {URL} url - URL 物件
+ * @returns {string|null} - 實際目標網址，非跳轉連結則回傳 null
+ */
+function unwrapMetaRedirect(url) {
+  if (!META_REDIRECT_HOSTS.has(url.hostname.toLowerCase())) {
+    return null;
+  }
+
+  const target = url.searchParams.get('u');
+  if (!target) {
+    return null;
+  }
+
+  try {
+    const targetUrl = new URL(target);
+    if (targetUrl.protocol === 'http:' || targetUrl.protocol === 'https:') {
+      return targetUrl.toString();
+    }
+  } catch (error) {
+    // 無法解析就當作非跳轉連結
+  }
+
+  return null;
+}
+
 /**
  * 轉換蝦皮 URL 為短網址格式
  * @param {URL} url - URL 物件
@@ -697,7 +923,7 @@ function transformShopeeURL(url) {
  * @param {string} urlString - 原始 URL
  * @returns {string} - 清理後的 URL
  */
-function cleanURLSync(urlString) {
+function cleanURLSync(urlString, depth = 0) {
   try {
     const url = new URL(urlString);
     const hostname = url.hostname;
@@ -705,6 +931,19 @@ function cleanURLSync(urlString) {
     // 使用者白名單：完全跳過清理，原樣返回
     if (isWhitelisted(hostname)) {
       return urlString;
+    }
+
+    // Meta 外連跳轉（l.instagram.com/?u=... 等）：先取出真實網址再清理
+    if (depth < 3) {
+      const unwrapped = unwrapMetaRedirect(url);
+      if (unwrapped) {
+        return cleanURLSync(unwrapped, depth + 1);
+      }
+    }
+
+    // Instagram：統一網域、正規化路徑並移除所有參數
+    if (INSTAGRAM_HOSTS.has(hostname.toLowerCase())) {
+      return cleanInstagramUrl(urlString);
     }
 
     // 尋找匹配的規則
@@ -801,6 +1040,11 @@ async function cleanURL(urlString) {
   try {
     const url = new URL(urlString);
 
+    // 使用者白名單：不解析短連結也不清理，避免多餘的網路請求
+    if (isWhitelisted(url.hostname)) {
+      return urlString;
+    }
+
     // 檢查是否為 Facebook 分享短連結，如果是則先解析
     if (isFacebookShareLink(url)) {
       const cached = await getCachedShortLink(urlString);
@@ -809,6 +1053,26 @@ async function cleanURL(urlString) {
       }
       console.log('偵測到 Facebook 分享短連結，正在解析...');
       const resolvedUrl = await resolveFacebookShareLink(urlString);
+      console.log('解析完成:', resolvedUrl);
+      await setCachedShortLink(urlString, resolvedUrl);
+      return resolvedUrl;
+    }
+
+    // 檢查是否為 Instagram 分享短連結（/share/... 或 ig.me），如果是則先解析
+    if (isInstagramShareLink(url)) {
+      const cached = await getCachedShortLink(urlString);
+      if (cached) {
+        return cached;
+      }
+      console.log('偵測到 Instagram 分享短連結，正在解析...');
+      const resolvedUrl = await resolveInstagramShareLink(urlString);
+
+      // 解析失敗不寫入快取（下次仍可重試），並退回移除參數後的原連結
+      if (!resolvedUrl) {
+        console.log('解析失敗，保留原分享連結');
+        return cleanInstagramUrl(urlString);
+      }
+
       console.log('解析完成:', resolvedUrl);
       await setCachedShortLink(urlString, resolvedUrl);
       return resolvedUrl;

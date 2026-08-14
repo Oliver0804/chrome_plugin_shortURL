@@ -36,7 +36,7 @@
 - **AliExpress**：移除分享追蹤參數
 
 ### 📱 社群媒體
-- **Instagram**：移除所有查詢參數
+- **Instagram**：移除所有查詢參數（igsh / igsi 等），正規化網域與 /reels/ 路徑，並支援新版分享短連結解析（/share/…、ig.me）
 - **Facebook**：只保留 fbid
 - **Twitter / X**：移除追蹤參數
 - **TikTok**：移除裝置和來源資訊，支援短連結解析 (vt.tiktok.com, vm.tiktok.com)

@@ -52,7 +52,7 @@ const URL_RULES = {
 | 淘寶 | item.taobao.com | keepParams | ['id'] |
 | 天貓 | detail.tmall.com | keepParams | ['id'] |
 | 蝦皮購物 | shopee.tw | pathTransform + keepParams | [] |
-| Instagram | instagram.com, www.instagram.com | keepParams | [] |
+| Instagram | instagram.com, www.instagram.com, ig.me | 專用清理 + 短連結解析 | [] |
 | YouTube | youtube.com, youtu.be | keepParams | ['v', 'list'] (youtu.be: []) |
 | Facebook | facebook.com, m.facebook.com | keepParams | ['fbid'] |
 | Twitter/X | twitter.com, x.com | removeParams | ['s', 't', 'src'] |

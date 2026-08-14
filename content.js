@@ -276,9 +276,15 @@ if (window.shortURLCopierInjected) {
       }
     });
 
-    // ========== 方法 2: 監聽 Facebook 複製連結按鈕 ==========
-    if (window.location.hostname.includes('facebook.com')) {
-      console.log('🔵 Facebook 頁面：啟用複製按鈕監聽');
+    // ========== 方法 2: 監聽社群網站的「複製連結」按鈕 ==========
+    // 這些網站用 JS 寫入剪貼簿（不觸發 copy 事件），需要在點擊後主動檢查剪貼簿
+    const COPY_BUTTON_SITES = ['facebook.com', 'instagram.com', 'threads.com', 'threads.net'];
+    const copyButtonSite = COPY_BUTTON_SITES.find(domain =>
+      window.location.hostname.includes(domain)
+    );
+
+    if (copyButtonSite) {
+      console.log(`🔵 ${copyButtonSite} 頁面：啟用複製按鈕監聽`);
 
       // 監聽所有點擊事件，檢測複製按鈕
       document.addEventListener('click', async (e) => {
@@ -299,14 +305,13 @@ if (window.shortURLCopierInjected) {
         );
 
         if (isCopyButton) {
-          console.log('🔵 [Facebook] 偵測到複製按鈕點擊');
+          console.log(`🔵 [${copyButtonSite}] 偵測到複製按鈕點擊`);
           pendingClipboardCheck = true;
 
-          // 延遲檢查剪貼簿（等待 Facebook 完成複製操作）
-          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-100ms'), 100);
-          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-300ms'), 300);
-          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-500ms'), 500);
-          setTimeout(() => tryReadAndCleanClipboard('FB按鈕-1000ms'), 1000);
+          // 延遲檢查剪貼簿（等待網站完成複製操作）
+          [100, 300, 500, 1000, 1500].forEach(delay => {
+            setTimeout(() => tryReadAndCleanClipboard(`複製按鈕-${delay}ms`), delay);
+          });
         }
       }, true); // 使用 capture 模式確保先捕捉到事件
     }

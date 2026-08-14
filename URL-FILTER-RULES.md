@@ -99,15 +99,43 @@
 
 ### 📱 社群媒體
 
-#### Instagram (instagram.com, www.instagram.com)
-- **模式**: 保留模式
-- **保留參數**: *無* (空陣列)
-- **說明**: 移除所有查詢參數
+#### Instagram (instagram.com, www.instagram.com, m./web. 子網域, ig.me)
+- **模式**: 專用清理（`cleanInstagramUrl`）
+- **保留參數**: *無*
+- **說明**:
+  - 移除所有查詢參數（`igsh`、`igsi`、`img_index`、`utm_*` 等）與 hash
+  - 網域統一為 `www.instagram.com`
+  - `/reels/{code}`、`/{帳號}/reel/{code}` 一律正規化為 `/reel/{code}/`
+  - **新版分享短連結**（`/share/...`、`ig.me/...`）追蹤碼在路徑中，改用跟隨重定向解析出真實貼文網址
 
 **範例**:
 ```
 原始: https://www.instagram.com/p/ABC123/?utm_source=ig_web_copy_link
 清理: https://www.instagram.com/p/ABC123/
+
+原始: https://www.instagram.com/reel/Db8agK8JHDN/?igsi=ZjFydTZ0cmY0amsx
+清理: https://www.instagram.com/reel/Db8agK8JHDN/
+
+原始: https://instagram.com/reels/Db8agK8JHDN/?igsh=xxxx
+清理: https://www.instagram.com/reel/Db8agK8JHDN/
+
+原始: https://www.instagram.com/share/reel/_pAbCdEf/    ← 需要連線解析
+清理: https://www.instagram.com/reel/Db8agK8JHDN/
+```
+
+> 解析不到真實網址時（例如未登入被擋在登入頁），會退回移除參數後的原分享連結，
+> 連結仍可正常開啟，且不會寫入快取，下次可再重試。
+
+---
+
+#### Meta 外連跳轉 (l.instagram.com, l.facebook.com, lm.facebook.com, l.messenger.com)
+- **模式**: 拆包裝
+- **說明**: 取出 `u` 參數中的真實網址，再依該網址所屬網站的規則繼續清理
+
+**範例**:
+```
+原始: https://l.instagram.com/?u=https%3A%2F%2Fexample.com%2Fa%3Futm_source%3Dig&e=ATxxx
+清理: https://example.com/a
 ```
 
 ---
@@ -436,7 +464,7 @@ console.log('清理:', cleaned);
 |------|---------|------|
 | item.taobao.com | id | 淘寶商品 ID |
 | detail.tmall.com | id | 天貓商品 ID |
-| instagram.com | *無* | 移除所有參數 |
+| instagram.com | *無* | 移除所有參數（另有專用正規化與分享連結解析） |
 | youtube.com | v, list | 影片 ID、播放清單 |
 | youtu.be | *無* | 移除所有參數 |
 | bilibili.com | *無* | 移除所有參數 |
