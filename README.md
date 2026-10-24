@@ -58,6 +58,14 @@
 - **TikTok Ads**：ttclid
 - **Email 行銷**：mc_cid, mc_eid 等
 
+## 🦊 Firefox 版
+
+Firefox（Manifest V3）版本位於 [`firefox/`](firefox/) 目錄：與 Chrome 版同一份程式碼，僅 manifest 改用 `background.scripts`（Firefox 的事件頁面）。
+
+- 已提交 [Firefox Add-ons (AMO)](https://addons.mozilla.org/firefox/addon/short-url-copier/) 審核（v1.3.30，listed 頻道）
+- 本地開發：在 `firefox/` 目錄執行 `npx web-ext run`
+- 提交／更新 listing：`AMO_API_KEY=<issuer> AMO_API_SECRET=<secret> node scripts/amo-update-listing.js`
+
 ## 📦 安裝方式
 
 ### 從 Release 下載

@@ -1,0 +1,18 @@
+{
+  "categories": {
+    "firefox": ["privacy-security"]
+  },
+  "version": {
+    "custom_license": {
+      "name": { "en-US": "MIT License" },
+      "text": {
+        "en-US": "MIT License — Copyright (c) Oliver0804. Source: https://github.com/Oliver0804/chrome_plugin_shortURL"
+      }
+    },
+    "release_notes": {
+      "en-US": "First Firefox release. Copy a cleaned short URL of the current page or any link: tracking parameters (utm_*, fbclid, gclid, etc.) are removed and site-specific rules keep only meaningful parameters. Facebook/TikTok share short-links are resolved to their real URLs. Also unlocks right-click and selection on sites that block it.",
+      "zh-TW": "首個 Firefox 版本。一鍵複製當前頁面或任何連結的乾淨短網址：自動移除追蹤參數（utm_*、fbclid、gclid 等），依網站規則只保留有意義的參數；Facebook／TikTok 分享短連結會自動解析為真實網址；另可解鎖右鍵與文字選取。"
+    },
+    "approval_notes": "Same extension as the Chrome Web Store listing 'Short URL Copier' (cmcmnlopagkmeackpmhfipcefeinaffg), ported to Firefox MV3 (background event page). Source: https://github.com/Oliver0804/chrome_plugin_shortURL\n\nPermission justification:\n- host_permissions <all_urls> + content script: the extension shows an optional floating bubble and context-menu item on any page to copy the current/link URL after cleaning; rules are all client-side (see URL_RULES in background.js).\n- clipboardWrite: writes the cleaned URL to the clipboard. clipboardRead: an explicit user action ('clean clipboard URL') reads the clipboard to clean a URL the user copied.\n- Background fetch to facebook.com / tiktok.com (redirect: follow) resolves /share/ and vt/vm.tiktok.com short links to their real URLs; results cached in chrome.storage.session (cleared when the browser closes).\n- No analytics, no remote code, no data leaves the browser except the short-link redirect fetches described above."
+  }
+}

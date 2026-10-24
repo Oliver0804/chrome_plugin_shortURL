@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Short URL Copier - 設定</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="https://raw.githubusercontent.com/Oliver0804/chrome_plugin_shortURL/main/good.JPG" alt="Short URL Copier" class="logo">
+      <h1>Short URL Copier 設定</h1>
+    </header>
+
+    <main>
+      <section class="settings-section">
+        <h2>🫧 浮動氣泡設定</h2>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="showBubble" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">顯示浮動氣泡</span>
+          </label>
+          <p class="setting-description">
+            在每個網頁右下角顯示浮動氣泡按鈕，方便快速複製清理後的網址
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">氣泡造型</label>
+          <div id="mascotPicker" class="mascot-picker">
+            <button type="button" class="mascot-option" data-mascot="logo">
+              <img src="logo.png" alt="預設">
+              <span>預設</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="puddle">
+              <img src="mascot/mascot-puddle.webp" alt="水窪">
+              <span>水窪</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="shy">
+              <img src="mascot/mascot-shy.webp" alt="害羞">
+              <span>害羞</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="spider">
+              <img src="mascot/mascot-spider.gif" alt="蜘蛛">
+              <span>蜘蛛</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="pillow">
+              <img src="mascot/mascot-pillow.webp" alt="抱枕">
+              <span>抱枕</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="bunny">
+              <img src="mascot/mascot-bunny.webp" alt="兔耳">
+              <span>兔耳</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="smile">
+              <img src="mascot/mascot-smile.webp" alt="笑臉">
+              <span>笑臉</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="cute">
+              <img src="mascot/mascot-cute.webp" alt="可愛">
+              <span>可愛</span>
+            </button>
+            <button type="button" class="mascot-option" data-mascot="wave">
+              <img src="mascot/mascot-wave.webp" alt="揮手">
+              <span>揮手</span>
+            </button>
+          </div>
+          <p class="setting-description">
+            選擇浮動氣泡顯示的角色造型，切換後即時生效。
+          </p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>📋 剪貼簿監聽設定</h2>
+
+        <div class="setting-item info-only">
+          <p class="setting-description">
+            <strong>✓ 剪貼簿自動清理始終啟用</strong><br>
+            無論在任何網站，當您複製網址時，插件都會自動清理追蹤參數。<br>
+            此功能無法關閉，這是本插件的核心功能。
+          </p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>⚙️ 其他設定</h2>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="showNotifications" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">顯示通知訊息</span>
+          </label>
+          <p class="setting-description">
+            複製成功或清理網址時顯示通知訊息
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <label class="switch-label">
+            <input type="checkbox" id="unlockRightClick" class="switch-input">
+            <span class="switch-slider"></span>
+            <span class="switch-text">解鎖右鍵選單與文字選取</span>
+          </label>
+          <p class="setting-description">
+            移除網站對右鍵選單和文字選取的限制，方便複製網頁內容。<br>
+            <strong>注意：</strong>某些網站（如線上編輯器、遊戲）可能因此功能異常，建議僅在需要時開啟。<br>
+            <em>此設定即時生效，無需重新整理頁面。</em>
+          </p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>🛠️ 自訂規則</h2>
+
+        <div class="setting-item">
+          <label class="setting-label" for="customWhitelist">白名單網域（不清理）</label>
+          <textarea id="customWhitelist" class="setting-textarea" rows="4"
+            placeholder="每行一個網域，例如：&#10;example.com&#10;mysite.org"></textarea>
+          <p class="setting-description">
+            這些網域（含子網域）的網址將完全保留，不移除任何參數。
+          </p>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label" for="customRemoveParams">額外移除的參數（全站）</label>
+          <textarea id="customRemoveParams" class="setting-textarea" rows="4"
+            placeholder="每行一個參數名稱，例如：&#10;my_tracking_id&#10;custom_ref"></textarea>
+          <p class="setting-description">
+            在所有網站上額外移除這些查詢參數，適用於追蹤參數沒被內建規則涵蓋的情況。
+          </p>
+        </div>
+      </section>
+
+      <div class="button-group">
+        <button id="saveButton" class="btn btn-primary">儲存設定</button>
+        <button id="resetButton" class="btn btn-secondary">重置為預設值</button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </main>
+
+    <footer>
+      <p>
+        <strong>Short URL Copier</strong> <span id="version">v1.3.24</span><br>
+        作者：BASHCAT |
+        <a href="https://github.com/Oliver0804" target="_blank">GitHub</a>
+      </p>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
